@@ -1,0 +1,144 @@
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { ApiKeyScope } from '@prisma/client';
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
+
+const BCRYPT_ROUNDS = 10;
+const KEY_PREFIX    = 'sk_live_';
+
+@Injectable()
+export class ApiKeysService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  async create(organizationId: string, actorUserId: string, dto: CreateApiKeyDto) {
+    const rawKey  = `${KEY_PREFIX}${crypto.randomBytes(32).toString('hex')}`;
+    const keyHash = await bcrypt.hash(rawKey, BCRYPT_ROUNDS);
+    const keyPrefix = rawKey.substring(0, 12);
+
+    const apiKey = await this.prisma.apiKey.create({
+      data: {
+        organizationId,
+        name:        dto.name,
+        description: dto.description,
+        keyHash,
+        keyPrefix,
+        scopes:    dto.scopes as unknown as any,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      },
+    });
+
+    this.audit.log({
+      organizationId,
+      userId:     actorUserId,
+      action:     'apikey.create',
+      resource:   'api_key',
+      resourceId: apiKey.id,
+      metadata:   { name: dto.name, scopes: dto.scopes },
+    });
+
+    // Devolver la key en claro UNA sola vez
+    return {
+      id:          apiKey.id,
+      name:        apiKey.name,
+      description: apiKey.description,
+      key:         rawKey,
+      keyPrefix,
+      scopes:      dto.scopes,
+      expiresAt:   apiKey.expiresAt,
+      createdAt:   apiKey.createdAt,
+    };
+  }
+
+  async list(organizationId: string) {
+    const keys = await this.prisma.apiKey.findMany({
+      where:   { organizationId, revokedAt: null },
+      select:  {
+        id: true, name: true, description: true,
+        keyPrefix: true, scopes: true,
+        lastUsedAt: true, expiresAt: true, createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: keys.map((k) => ({
+        ...k,
+        scopes: k.scopes as unknown as ApiKeyScope[],
+        isExpired: k.expiresAt ? new Date() > k.expiresAt : false,
+      })),
+    };
+  }
+
+  async revoke(organizationId: string, actorUserId: string, keyId: string) {
+    const key = await this.prisma.apiKey.findFirst({
+      where: { id: keyId, organizationId },
+    });
+
+    if (!key) throw new NotFoundException('API Key no encontrada');
+    if (key.revokedAt) throw new ForbiddenException('La key ya está revocada');
+
+    await this.prisma.apiKey.update({
+      where: { id: keyId },
+      data:  { revokedAt: new Date() },
+    });
+
+    this.audit.log({
+      organizationId,
+      userId:     actorUserId,
+      action:     'apikey.revoke',
+      resource:   'api_key',
+      resourceId: keyId,
+      metadata:   { name: key.name },
+    });
+
+    return { success: true, message: 'API Key revocada exitosamente' };
+  }
+
+  /**
+   * Valida una raw key recibida en el header x-api-key.
+   * Usada por ApiKeyAuthGuard en todos los sistemas del ecosistema.
+   */
+  async validate(rawKey: string) {
+    if (!rawKey.startsWith(KEY_PREFIX)) {
+      throw new UnauthorizedException('Formato de API Key inválido');
+    }
+
+    const keyPrefix = rawKey.substring(0, 12);
+    const candidates = await this.prisma.apiKey.findMany({
+      where: {
+        keyPrefix,
+        revokedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: { organization: true },
+    });
+
+    for (const candidate of candidates) {
+      const valid = await bcrypt.compare(rawKey, candidate.keyHash);
+      if (valid) {
+        void this.prisma.apiKey
+          .update({ where: { id: candidate.id }, data: { lastUsedAt: new Date() } })
+          .catch(() => null);
+
+        return {
+          ...candidate,
+          scopes: candidate.scopes as unknown as ApiKeyScope[],
+        };
+      }
+    }
+
+    throw new UnauthorizedException('API Key inválida o expirada');
+  }
+}

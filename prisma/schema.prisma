@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// schema.prisma — Multi-tenant SaaS Owner Dashboard
+// Aplicar manualmente: copiar este archivo a prisma/schema.prisma
+// Luego: pnpm prisma migrate dev --name <nombre_descriptivo>
+// ─────────────────────────────────────────────────────────────────────────────
+
 generator client {
   provider   = "prisma-client-js"
   engineType = "client"
@@ -9,96 +15,224 @@ datasource db {
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-enum CollaboratorStatus {
-  PENDING   // invitado, aún no aceptó
-  ACTIVE    // aceptó la invitación
-  REMOVED   // fue removido por el owner
+// Rol jerárquico dentro de una organización.
+// OWNER   → creador, control total, no puede ser removido
+// ADMIN   → gestiona miembros y configuración, no puede tocar billing
+// MEMBER  → acceso operativo según productPermissions
+// VIEWER  → solo lectura en los módulos habilitados
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
 }
 
-// ─── Models ───────────────────────────────────────────────────────────────────
+// Estado de una invitación a la organización.
+enum InvitationStatus {
+  PENDING   // enviada, esperando que el invitado acepte
+  ACCEPTED  // aceptada, membership creada
+  EXPIRED   // pasaron 7 días sin aceptar
+  REVOKED   // el owner la canceló manualmente
+}
+
+// Scopes disponibles para API Keys.
+// Al agregar un nuevo sistema, agregar su scope aquí y hacer migrate.
+enum ApiKeyScope {
+  // Owner dashboard
+  READ_ORG
+  WRITE_ORG
+  MANAGE_MEMBERS
+  // Sistema de pagos
+  READ_PAYMENTS
+  WRITE_PAYMENTS
+  // Chat IA
+  READ_CHAT
+  WRITE_CHAT
+  // Ad Optimizer
+  READ_ADS
+  WRITE_ADS
+  // Acceso completo (super-scope, para integraciones internas)
+  FULL_ACCESS
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
-  id             String  @id @default(uuid())
-  firebaseUid    String  @unique
-  email          String  @unique
-  isOwner        Boolean @default(false)
-  isAffiliate    Boolean @default(false)
-  affiliateCode  String? @unique
-  referredByCode String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String  @id @default(uuid())
+  firebaseUid   String  @unique
+  email         String  @unique
+  displayName   String?                       // nombre del usuario (sync desde Firebase)
+  avatarUrl     String?                       // foto de perfil (sync desde Firebase)
+  affiliateCode  String? @unique              // código único si es afiliado
+  referredByCode String?                      // código del afiliado que lo refirió
 
-  organization    Organization?
-  affiliateData   AffiliateData?
-  collaborations  Collaborator[]  // orgs donde es colaborador
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   Membership[]
+  invitations   Invitation[]  @relation("InvitedUser")
+  affiliateData AffiliateData?
+  auditLogs     AuditLog[]
 
   @@map("users")
 }
 
+// ─── Organization ─────────────────────────────────────────────────────────────
+
 model Organization {
   id          String  @id @default(uuid())
-  userId      String  @unique
   name        String?
+  slug        String  @unique              // identificador URL-friendly, editable por el owner
   description String?
   logoUrl     String?
   website     String?
   phone       String?
   address     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collaborators Collaborator[]
+  // Qué sistemas tiene habilitados esta org.
+  // Cada sistema externo consulta estos flags antes de mostrar su módulo.
+  // Estructura esperada del JSON:
+  // {
+  //   "payments": true,
+  //   "chat": true,
+  //   "ads": false
+  // }
+  enabledProducts Json @default("{}")
+
+  // Metadata libre para que los sistemas externos guarden config propia.
+  // Ej: { "payments": { "defaultCurrency": "ARS" }, "chat": { "defaultModel": "llama3-70b" } }
+  systemSettings Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  invitations Invitation[]
+  apiKeys     ApiKey[]
+  auditLogs   AuditLog[]
 
   @@map("organizations")
 }
 
-model Collaborator {
-  id             String             @id @default(uuid())
+// ─── Membership ───────────────────────────────────────────────────────────────
+// Único modelo que une User + Organization. Reemplaza a la tabla collaborators.
+
+model Membership {
+  id             String         @id @default(uuid())
+  userId         String
   organizationId String
-  userId         String?            // null hasta que acepta
-  email          String             // email invitado
-  status         CollaboratorStatus @default(PENDING)
+  role           MembershipRole @default(MEMBER)
 
-  // Permisos granulares
-  canViewListings        Boolean @default(true)
-  canCreateListings      Boolean @default(false)
-  canEditListings        Boolean @default(false)
-  canDeleteListings      Boolean @default(false)
-  canViewStats           Boolean @default(false)
-  canManageLeads         Boolean @default(false)
-  canManageCollaborators Boolean @default(false)
+  // Permisos granulares por producto en JSONB.
+  // Al agregar un nuevo sistema, solo se agrega una clave aquí — sin migrate.
+  // Estructura esperada:
+  // {
+  //   "payments": { "canRead": true,  "canWrite": false },
+  //   "chat":     { "canRead": true,  "canWrite": true  },
+  //   "ads":      { "canRead": false, "canWrite": false }
+  // }
+  // Para OWNER y ADMIN, estos permisos se ignoran (tienen acceso total).
+  productPermissions Json @default("{}")
 
-  invitedAt  DateTime  @default(now())
-  acceptedAt DateTime?
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  invitation   Invitation?
 
-  @@unique([organizationId, email])
+  @@unique([userId, organizationId])
   @@index([organizationId])
-  @@map("collaborators")
+  @@index([userId])
+  @@map("memberships")
 }
+
+// ─── Invitation ───────────────────────────────────────────────────────────────
+// Reemplaza las tablas collaborators + invitations.
+// Un registro por invitación; cuando se acepta se crea la Membership correspondiente.
 
 model Invitation {
-  id             String   @id @default(uuid())
-  collaboratorId String   @unique
-  token          String   @unique @default(uuid())
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String                             // destinatario
+  role           MembershipRole   @default(MEMBER)
+  token          String           @unique @default(uuid())
+  status         InvitationStatus @default(PENDING)
   expiresAt      DateTime
-  usedAt         DateTime?
-  createdAt      DateTime @default(now())
 
-  collaborator Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  // Permisos que tendrá el miembro al aceptar (copiados a Membership.productPermissions)
+  productPermissions Json @default("{}")
 
+  // Se completa cuando el invitado acepta
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+
+  // Quién invitó (para audit)
+  invitedByUserId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  acceptedBy   User?        @relation("InvitedUser", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])          // evitar invitaciones duplicadas activas
+  @@index([organizationId])
+  @@index([token])
   @@map("invitations")
 }
+
+// ─── ApiKey ───────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id             String      @id @default(uuid())
+  organizationId String
+  name           String
+  keyHash        String      @unique   // bcrypt hash de la key real (nunca se guarda en claro)
+  keyPrefix      String                // primeros 12 chars para búsqueda rápida
+  scopes         Json        @default("[]")   // ApiKeyScope[]
+  description    String?               // para que el owner recuerde para qué es
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([keyPrefix])
+  @@map("api_keys")
+}
+
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+// Append-only. Nunca se borra. Registra toda acción administrativa.
+
+model AuditLog {
+  id             String  @id @default(uuid())
+  organizationId String?
+  userId         String?
+  action         String                   // ej: "member.invite", "apikey.create", "org.update"
+  resource       String?                  // ej: "membership", "api_key", "organization"
+  resourceId     String?
+  metadata       Json?                    // datos extra (ej: rol asignado, scopes de la key)
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ─── AffiliateData ────────────────────────────────────────────────────────────
 
 model AffiliateData {
   id            String   @id @default(uuid())
   userId        String   @unique
-  balance       Decimal  @default(0) @db.Decimal(10, 2)
+  balance       Float    @default(0)
   referralCount Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

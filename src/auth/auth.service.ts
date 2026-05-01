@@ -1,76 +1,151 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CurrentUserPayload } from '../common/decorators/current-user.decorator';
-import { User } from 'generated/prisma/client';
-import { AffiliatesService } from 'src/affiliate/affiliate.service';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly affiliatesService: AffiliatesService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * POST /auth/sync?ref=RE-XXXXXXXX (ref es opcional)
-   * Sincroniza el usuario de Firebase con PostgreSQL.
-   * Si viene un código de afiliado válido y el usuario es nuevo, registra el referido.
+   * Sincroniza el usuario de Firebase con la DB.
+   * Si es nuevo lo crea; si existe, actualiza displayName/avatarUrl.
+   * Registra el código de afiliado si se pasa en el primer sync.
    */
   async syncUser(
     firebaseUser: CurrentUserPayload,
     affiliateCode?: string,
-  ): Promise<{
-    user: User & { organization: any; affiliateData: any };
-    isNew: boolean;
-  }> {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { firebaseUid: firebaseUser.uid },
-      include: {
-        organization: true,
-        affiliateData: true,
-      },
-    });
+  ) {
+    const { user, isNew } = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { firebaseUid: firebaseUser.uid },
+        include: {
+          memberships: {
+            include: { organization: true },
+          },
+          affiliateData: true,
+        },
+      });
 
-    if (existingUser) {
-      this.logger.log(`Usuario existente sincronizado: ${existingUser.email}`);
-      return { user: existingUser, isNew: false };
-    }
+      if (existing) {
+        // Actualizar nombre/avatar si cambiaron en Firebase
+        const needsUpdate =
+          (firebaseUser.displayName && existing.displayName !== firebaseUser.displayName) ||
+          (firebaseUser.avatarUrl   && existing.avatarUrl   !== firebaseUser.avatarUrl);
 
-    // Crear nuevo usuario
-    const newUser = await this.prisma.user.create({
-      data: {
-        firebaseUid: firebaseUser.uid,
-        email: firebaseUser.email,
-        isOwner: false,
-        isAffiliate: false,
-      },
-      include: {
-        organization: true,
-        affiliateData: true,
-      },
-    });
+        const updated = needsUpdate
+          ? await tx.user.update({
+              where: { id: existing.id },
+              data: {
+                displayName: firebaseUser.displayName ?? existing.displayName,
+                avatarUrl:   firebaseUser.avatarUrl   ?? existing.avatarUrl,
+              },
+              include: {
+                memberships: { include: { organization: true } },
+                affiliateData: true,
+              },
+            })
+          : existing;
 
-    this.logger.log(`Nuevo usuario creado: ${newUser.email}`);
-
-    // Si vino un código de afiliado, registrar el referido (no bloquea si falla)
-    if (affiliateCode) {
-      try {
-        await this.affiliatesService.registerReferral(newUser.id, affiliateCode);
-      } catch (err) {
-        this.logger.warn(
-          `Error al registrar referido con código ${affiliateCode}: ${err.message}`,
-        );
+        return { user: updated, isNew: false };
       }
-    }
 
-    // Refrescar usuario por si registerReferral escribió referredByCode
-    const freshUser = await this.prisma.user.findUnique({
-      where: { id: newUser.id },
-      include: { organization: true, affiliateData: true },
+      const created = await tx.user.create({
+        data: {
+          firebaseUid: firebaseUser.uid,
+          email:       firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          avatarUrl:   firebaseUser.avatarUrl,
+        },
+        include: {
+          memberships: { include: { organization: true } },
+          affiliateData: true,
+        },
+      });
+
+      return { user: created, isNew: true };
     });
 
-    return { user: freshUser!, isNew: true };
+    // Registrar referido en background (no bloquea la respuesta)
+    if (isNew && affiliateCode) {
+      this.registerReferral(user.id, affiliateCode).catch((err) =>
+        this.logger.warn(`Error registrando referido ${affiliateCode}: ${(err as Error).message}`),
+      );
+    }
+
+    if (isNew) {
+      this.logger.log(`Nuevo usuario: ${user.email}`);
+    }
+
+    return { user, isNew };
+  }
+
+  /**
+   * Devuelve el perfil completo del usuario autenticado + sus orgs + permisos.
+   * Los frontends de todos los sistemas llaman a este endpoint al iniciar.
+   */
+  async getMe(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid },
+      include: {
+        memberships: {
+          include: {
+            organization: {
+              select: {
+                id:              true,
+                name:            true,
+                slug:            true,
+                logoUrl:         true,
+                enabledProducts: true,
+              },
+            },
+          },
+        },
+        affiliateData: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id:          user.id,
+      firebaseUid: user.firebaseUid,
+      email:       user.email,
+      displayName: user.displayName,
+      avatarUrl:   user.avatarUrl,
+      organizations: user.memberships.map((m) => ({
+        id:                 m.organization.id,
+        name:               m.organization.name,
+        slug:               m.organization.slug,
+        logoUrl:            m.organization.logoUrl,
+        enabledProducts:    m.organization.enabledProducts,
+        role:               m.role,
+        productPermissions: m.productPermissions,
+        membershipId:       m.id,
+      })),
+      affiliateData: user.affiliateData,
+      isAffiliate:   !!user.affiliateData,
+    };
+  }
+
+  private async registerReferral(newUserId: string, affiliateCode: string): Promise<void> {
+    const affiliate = await this.prisma.user.findUnique({
+      where: { affiliateCode },
+      include: { affiliateData: true },
+    });
+
+    if (!affiliate?.affiliateData) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: newUserId },
+        data: { referredByCode: affiliateCode },
+      });
+      await tx.affiliateData.update({
+        where: { userId: affiliate.id },
+        data: { referralCount: { increment: 1 } },
+      });
+    });
   }
 }

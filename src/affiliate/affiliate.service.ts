@@ -12,21 +12,15 @@ export class AffiliatesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * GET /affiliates/me
-   * Retorna el perfil del afiliado con su código, balance y total de referidos.
-   */
   async getMyProfile(firebaseUid: string) {
     const user = await this.prisma.user.findUnique({
       where: { firebaseUid },
       include: { affiliateData: true },
     });
 
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
+    if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    if (!user.isAffiliate || !user.affiliateData) {
+    if (!user.affiliateCode || !user.affiliateData) {
       throw new ForbiddenException(
         'Este usuario no tiene el rol de Afiliado activo',
       );
@@ -43,20 +37,14 @@ export class AffiliatesService {
     };
   }
 
-  /**
-   * GET /affiliates/me/referrals
-   * Retorna el listado de usuarios que se registraron con el código del afiliado.
-   */
   async getMyReferrals(firebaseUid: string) {
     const user = await this.prisma.user.findUnique({
       where: { firebaseUid },
     });
 
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
+    if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    if (!user.isAffiliate || !user.affiliateCode) {
+    if (!user.affiliateCode) {
       throw new ForbiddenException(
         'Este usuario no tiene el rol de Afiliado activo',
       );
@@ -67,8 +55,6 @@ export class AffiliatesService {
       select: {
         id: true,
         email: true,
-        isOwner: true,
-        isAffiliate: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -84,52 +70,31 @@ export class AffiliatesService {
     };
   }
 
-  /**
-   * Registra un referido: se llama desde AuthService cuando un nuevo
-   * usuario se sincroniza con un código de afiliado válido.
-   *
-   * - Incrementa referralCount en AffiliateData del afiliado.
-   * - Guarda referredByCode en el nuevo usuario.
-   * Nota: la lógica de acreditar balance queda desacoplada aquí
-   * para que puedas extenderla (ej: acreditar solo si el referido
-   * completa onboarding o paga suscripción).
-   */
-  async registerReferral(
-    newUserId: string,
-    affiliateCode: string,
-  ): Promise<void> {
-    // Buscar al afiliado dueño del código
+  async registerReferral(newUserId: string, affiliateCode: string): Promise<void> {
     const affiliate = await this.prisma.user.findUnique({
       where: { affiliateCode },
       include: { affiliateData: true },
     });
 
-    if (!affiliate || !affiliate.isAffiliate || !affiliate.affiliateData) {
-      this.logger.warn(
-        `Código de afiliado inválido o sin datos: ${affiliateCode}`,
-      );
-      return; // No rompemos el flujo de registro si el código no es válido
+    if (!affiliate || !affiliate.affiliateData) {
+      this.logger.warn(`Código de afiliado inválido: ${affiliateCode}`);
+      return;
     }
 
-    // Transacción: guardar referredByCode + incrementar contador
     await this.prisma.$transaction(async (tx) => {
-      // Marcar al nuevo usuario con el código que usó
       await tx.user.update({
         where: { id: newUserId },
         data: { referredByCode: affiliateCode },
       });
 
-      // Incrementar el contador del afiliado
       await tx.affiliateData.update({
         where: { userId: affiliate.id },
-        data: {
-          referralCount: { increment: 1 },
-        },
+        data: { referralCount: { increment: 1 } },
       });
     });
 
     this.logger.log(
-      `Referido registrado: usuario ${newUserId} via código ${affiliateCode} (afiliado: ${affiliate.email})`,
+      `Referido registrado: usuario ${newUserId} via ${affiliateCode}`,
     );
   }
 }

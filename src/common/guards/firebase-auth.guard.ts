@@ -2,84 +2,57 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  UnauthorizedException,
   Logger,
+  SetMetadata,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import * as admin from 'firebase-admin';
 
 export const IS_PUBLIC_KEY = 'isPublic';
-
-/**
- * Decorador para marcar rutas como públicas (sin auth)
- * Uso: @Public() en controller o handler
- */
-import { SetMetadata } from '@nestjs/common';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
   private readonly logger = new Logger(FirebaseAuthGuard.name);
-  private firebaseApp: admin.app.App;
 
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly configService: ConfigService,
-  ) {
-    // Inicializar Firebase Admin SDK (singleton)
-    if (!admin.apps.length) {
-      this.firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: this.configService.get<string>('FIREBASE_PROJECT_ID'),
-          clientEmail: this.configService.get<string>('FIREBASE_CLIENT_EMAIL'),
-          // Reemplaza \\n escapados del .env
-          privateKey: this.configService
-            .get<string>('FIREBASE_PRIVATE_KEY')
-            ?.replace(/\\n/g, '\n'),
-        }),
-      });
-    } else {
-      this.firebaseApp = admin.app();
-    }
-  }
+  constructor(private readonly reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Verificar si la ruta es pública
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
+      ctx.getHandler(),
+      ctx.getClass(),
     ]);
-
     if (isPublic) return true;
 
-    const request = context.switchToHttp().getRequest<Request>();
-    const token = this.extractTokenFromHeader(request);
+    const req   = ctx.switchToHttp().getRequest<Request>();
+    const token = this.extractToken(req);
 
-    if (!token) {
-      throw new UnauthorizedException('No se proporcionó token de autenticación');
+    if (!token) throw new UnauthorizedException('Token de autenticación requerido');
+
+    if (!admin.apps.length) {
+      throw new UnauthorizedException('Firebase no está configurado en este servidor');
     }
 
     try {
-      const decodedToken = await this.firebaseApp.auth().verifyIdToken(token);
-
-      // Inyectar el usuario decodificado en el request
-      request['user'] = {
-        uid: decodedToken.uid,
-        email: decodedToken.email,
-        emailVerified: decodedToken.email_verified,
+      const decoded = await admin.app().auth().verifyIdToken(token);
+      req['user'] = {
+        uid:           decoded.uid,
+        email:         decoded.email ?? '',
+        emailVerified: decoded.email_verified ?? false,
+        displayName:   decoded.name,
+        avatarUrl:     decoded.picture,
       };
-
       return true;
-    } catch (error) {
-      this.logger.warn(`Token inválido: ${error.message}`);
+    } catch (err) {
+      this.logger.warn(`Token inválido: ${(err as Error).message}`);
       throw new UnauthorizedException('Token de Firebase inválido o expirado');
     }
   }
 
-  private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+  private extractToken(req: Request): string | undefined {
+    const [type, token] = req.headers.authorization?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
   }
 }

@@ -1,11 +1,12 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class SyncUserDto {
   @IsString()
   @IsOptional()
   displayName?: string;
 
-  @IsEmail()
+  @IsString()
   @IsOptional()
-  email?: string;
+  @IsUrl({}, { message: 'avatarUrl debe ser una URL válida' })
+  avatarUrl?: string;
 }

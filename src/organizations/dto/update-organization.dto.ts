@@ -1,38 +1,52 @@
 import {
-  IsString,
-  IsOptional,
-  IsUrl,
-  MaxLength,
-  MinLength,
+  IsString, IsOptional, IsUrl, MaxLength, MinLength,
+  IsObject,
 } from 'class-validator';
 
 export class UpdateOrganizationDto {
   @IsString()
   @IsOptional()
-  @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
-  @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres' })
+  @MinLength(2)
+  @MaxLength(100)
   name?: string;
 
   @IsString()
   @IsOptional()
-  @MaxLength(500, { message: 'La descripción no puede superar los 500 caracteres' })
+  @MaxLength(80)
+  // Solo letras minúsculas, números y guiones
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
   description?: string;
 
-  @IsUrl({}, { message: 'El logo debe ser una URL válida' })
   @IsOptional()
+  @IsUrl()
   logoUrl?: string;
 
-  @IsUrl({}, { message: 'El sitio web debe ser una URL válida' })
   @IsOptional()
+  @IsUrl()
   website?: string;
 
   @IsString()
   @IsOptional()
-  @MaxLength(20, { message: 'El teléfono no puede superar los 20 caracteres' })
+  @MaxLength(20)
   phone?: string;
 
   @IsString()
   @IsOptional()
-  @MaxLength(200, { message: 'La dirección no puede superar los 200 caracteres' })
+  @MaxLength(200)
   address?: string;
+
+  // Qué sistemas tiene habilitados esta org
+  // { "payments": true, "chat": true, "ads": false }
+  @IsObject()
+  @IsOptional()
+  enabledProducts?: Record<string, boolean>;
+
+  // Config por sistema — libre
+  @IsObject()
+  @IsOptional()
+  systemSettings?: Record<string, unknown>;
 }

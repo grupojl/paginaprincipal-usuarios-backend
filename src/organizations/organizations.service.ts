@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { MembershipRole, Prisma } from '@prisma/client';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
 @Injectable()
@@ -14,106 +15,160 @@ export class OrganizationsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Crea una organización vacía para un usuario Owner.
-   * Acepta un cliente Prisma de transacción (tx) o el servicio estándar.
-   */
-  async createForUser(userId: string, tx?: Prisma.TransactionClient) {
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 60);
+  }
+
+  private async ensureSlugUnique(slug: string, excludeId?: string): Promise<string> {
+    const base    = this.slugify(slug);
+    let candidate = base;
+    let i         = 1;
+
+    while (true) {
+      const existing = await this.prisma.organization.findUnique({
+        where: { slug: candidate },
+      });
+      if (!existing || existing.id === excludeId) return candidate;
+      candidate = `${base}-${i++}`;
+    }
+  }
+
+  // ─── Crear org para un usuario (llamado desde UsersService) ───────────────
+
+  async createForUser(userId: string, orgName?: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;
+
+    const baseSlug = orgName ? this.slugify(orgName) : `org-${userId.substring(0, 8)}`;
+    const slug     = await this.ensureSlugUnique(baseSlug);
 
     return client.organization.create({
       data: {
-        userId,
+        name: orgName ?? null,
+        slug,
+        enabledProducts: {},
+        systemSettings:  {},
+        memberships: {
+          create: {
+            userId,
+            role:               MembershipRole.OWNER,
+            productPermissions: {},
+          },
+        },
       },
+      include: { memberships: true },
     });
   }
 
-  /**
-   * PATCH /organizations/me
-   * Actualiza el perfil de la organización del usuario autenticado.
-   * Solo el Owner de la organización puede editarla.
-   */
-  async updateMyOrganization(
-    firebaseUid: string,
-    dto: UpdateOrganizationDto,
-  ) {
-    // Buscar usuario y verificar que sea owner
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseUid },
+  // ─── Leer ──────────────────────────────────────────────────────────────────
+
+  async getMyOrganizations(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const memberships = await this.prisma.membership.findMany({
+      where:   { userId: user.id },
+      include: { organization: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      success: true,
+      data: memberships.map((m) => ({
+        ...m.organization,
+        role:               m.role,
+        productPermissions: m.productPermissions,
+        membershipId:       m.id,
+      })),
+    };
+  }
+
+  async getMyOrganization(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where:   { userId: user.id, role: MembershipRole.OWNER },
       include: { organization: true },
     });
 
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
+    if (!membership) throw new NotFoundException('No tenés una organización como Owner');
+
+    return { success: true, data: { ...membership.organization, role: membership.role } };
+  }
+
+  /**
+   * Estadísticas básicas de la org para el Overview del dashboard.
+   */
+  async getOrgStats(organizationId: string) {
+    const [membersCount, keysCount, recentAudit] = await Promise.all([
+      this.prisma.membership.count({ where: { organizationId } }),
+      this.prisma.apiKey.count({ where: { organizationId, revokedAt: null } }),
+      this.prisma.auditLog.findMany({
+        where:   { organizationId },
+        orderBy: { createdAt: 'desc' },
+        take:    10,
+        select:  { id: true, action: true, resource: true, createdAt: true, userId: true },
+      }),
+    ]);
+
+    return { success: true, data: { membersCount, activeApiKeys: keysCount, recentActivity: recentAudit } };
+  }
+
+  // ─── Actualizar ────────────────────────────────────────────────────────────
+
+  async updateMyOrganization(firebaseUid: string, dto: UpdateOrganizationDto) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where: {
+        userId: user.id,
+        role:   { in: [MembershipRole.OWNER, MembershipRole.ADMIN] },
+      },
+      include: { organization: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Solo Owner o Admin pueden editar la organización');
     }
 
-    if (!user.isOwner) {
-      throw new ForbiddenException(
-        'Solo los usuarios con rol Owner pueden editar una organización',
-      );
+    const org = membership.organization;
+
+    // Validar slug único si cambió
+    if (dto.slug && dto.slug !== org.slug) {
+      const normalized = this.slugify(dto.slug);
+      const conflict   = await this.prisma.organization.findUnique({ where: { slug: normalized } });
+      if (conflict && conflict.id !== org.id) {
+        throw new BadRequestException(`El slug "${normalized}" ya está en uso`);
+      }
+      dto.slug = normalized;
     }
 
-    if (!user.organization) {
-      throw new NotFoundException(
-        'No se encontró una organización asociada a este usuario',
-      );
-    }
-
-    // Filtrar solo los campos enviados (no pisamos con undefined)
-    const dataToUpdate: Prisma.OrganizationUpdateInput = {};
-    if (dto.name !== undefined) dataToUpdate.name = dto.name;
-    if (dto.description !== undefined) dataToUpdate.description = dto.description;
-    if (dto.logoUrl !== undefined) dataToUpdate.logoUrl = dto.logoUrl;
-    if (dto.website !== undefined) dataToUpdate.website = dto.website;
-    if (dto.phone !== undefined) dataToUpdate.phone = dto.phone;
-    if (dto.address !== undefined) dataToUpdate.address = dto.address;
+    const data: Prisma.OrganizationUpdateInput = {};
+    if (dto.name            !== undefined) data.name            = dto.name;
+    if (dto.slug            !== undefined) data.slug            = dto.slug;
+    if (dto.description     !== undefined) data.description     = dto.description;
+    if (dto.logoUrl         !== undefined) data.logoUrl         = dto.logoUrl;
+    if (dto.website         !== undefined) data.website         = dto.website;
+    if (dto.phone           !== undefined) data.phone           = dto.phone;
+    if (dto.address         !== undefined) data.address         = dto.address;
+    if (dto.enabledProducts !== undefined) data.enabledProducts = dto.enabledProducts as Prisma.InputJsonValue;
+    if (dto.systemSettings  !== undefined) data.systemSettings  = dto.systemSettings  as Prisma.InputJsonValue;
 
     const updated = await this.prisma.organization.update({
-      where: { id: user.organization.id },
-      data: dataToUpdate,
+      where: { id: org.id },
+      data,
     });
 
-    this.logger.log(
-      `Organización actualizada: ${updated.id} por usuario ${user.email}`,
-    );
-
-    return {
-      success: true,
-      message: 'Organización actualizada exitosamente',
-      data: updated,
-    };
-  }
-
-  /**
-   * GET /organizations/me
-   * Retorna la organización del usuario autenticado.
-   */
-  async getMyOrganization(firebaseUid: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { firebaseUid },
-      include: { organization: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    if (!user.organization) {
-      throw new NotFoundException(
-        'No se encontró una organización asociada a este usuario',
-      );
-    }
-
-    return {
-      success: true,
-      data: user.organization,
-    };
-  }
-
-  async findByUserId(userId: string) {
-    return this.prisma.organization.findUnique({
-      where: { userId },
-      include: { user: true },
-    });
+    this.logger.log(`Org ${org.id} actualizada por ${user.email}`);
+    return { success: true, message: 'Organización actualizada', data: updated };
   }
 }

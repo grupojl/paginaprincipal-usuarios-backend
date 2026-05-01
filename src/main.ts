@@ -1,29 +1,34 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
+import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+  const app    = await NestFactory.create(AppModule);
+
+  app.use(helmet());
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
+      whitelist:              true,
+      forbidNonWhitelisted:   true,
+      transform:              true,
+      disableErrorMessages:   process.env.NODE_ENV === 'production',
     }),
   );
 
   app.setGlobalPrefix('api/v1');
 
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    origin:      process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:3001'],
+    methods:     ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`🚀 Real Estate SaaS Backend running on port http://localhost:${port}`);
+  logger.log(`Backend corriendo en http://localhost:${port}/api/v1`);
 }
 
 bootstrap();

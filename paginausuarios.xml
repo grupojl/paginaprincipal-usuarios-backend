@@ -1,0 +1,5310 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.env.example
+.gitignore
+.prettierrc
+eslint.config.mjs
+nest-cli.json
+package.json
+prisma.config.ts
+prisma/migrations/20260501041248_init/migration.sql
+prisma/migrations/migration_lock.toml
+prisma/schema.prisma
+README.md
+src/affiliate/affiliate.controller.spec.ts
+src/affiliate/affiliate.controller.ts
+src/affiliate/affiliate.module.ts
+src/affiliate/affiliate.service.spec.ts
+src/affiliate/affiliate.service.ts
+src/affiliate/dto/create-affiliate.dto.ts
+src/affiliate/dto/update-affiliate.dto.ts
+src/api-keys/api-keys.controller.ts
+src/api-keys/api-keys.module.ts
+src/api-keys/api-keys.service.ts
+src/api-keys/dto/create-api-key.dto.ts
+src/app.controller.spec.ts
+src/app.controller.ts
+src/app.module.ts
+src/app.service.ts
+src/audit/audit.controller.ts
+src/audit/audit.module.ts
+src/audit/audit.service.ts
+src/auth/auth.controller.spec.ts
+src/auth/auth.controller.ts
+src/auth/auth.module.ts
+src/auth/auth.service.spec.ts
+src/auth/auth.service.ts
+src/auth/dto/sync.dto.ts
+src/common/decorators/current-user.decorator.ts
+src/common/decorators/roles.decorator.ts
+src/common/decorators/tenant.decorator.ts
+src/common/guards/api-key-auth.guard.ts
+src/common/guards/firebase-auth.guard.ts
+src/common/guards/roles.guard.ts
+src/common/guards/step-up.guard.ts
+src/common/guards/tenant.guard.ts
+src/common/types/tenant-context.ts
+src/firebase/firebase.module.ts
+src/main.ts
+src/memberships/dto/invite-member.dto.ts
+src/memberships/dto/update-member.dto.ts
+src/memberships/memberships.controller.ts
+src/memberships/memberships.module.ts
+src/memberships/memberships.service.ts
+src/organizations/dto/update-organization.dto.ts
+src/organizations/organizations.controller.ts
+src/organizations/organizations.module.ts
+src/organizations/organizations.service.ts
+src/prisma/prisma.module.ts
+src/prisma/prisma.service.ts
+src/users/dto/select-role.dto.ts
+src/users/users.controller.spec.ts
+src/users/users.controller.ts
+src/users/users.module.ts
+src/users/users.service.spec.ts
+src/users/users.service.ts
+test/app.e2e-spec.ts
+test/jest-e2e.json
+tsconfig.build.json
+tsconfig.json
+x.sh
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="prisma/migrations/20260501041248_init/migration.sql">
+-- CreateEnum
+CREATE TYPE "MembershipRole" AS ENUM ('OWNER', 'ADMIN', 'MEMBER', 'VIEWER');
+
+-- CreateEnum
+CREATE TYPE "InvitationStatus" AS ENUM ('PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED');
+
+-- CreateEnum
+CREATE TYPE "ApiKeyScope" AS ENUM ('READ_ORG', 'WRITE_ORG', 'MANAGE_MEMBERS', 'READ_PAYMENTS', 'WRITE_PAYMENTS', 'READ_CHAT', 'WRITE_CHAT', 'READ_ADS', 'WRITE_ADS', 'FULL_ACCESS');
+
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "firebaseUid" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "displayName" TEXT,
+    "avatarUrl" TEXT,
+    "affiliateCode" TEXT,
+    "referredByCode" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "organizations" (
+    "id" TEXT NOT NULL,
+    "name" TEXT,
+    "slug" TEXT NOT NULL,
+    "description" TEXT,
+    "logoUrl" TEXT,
+    "website" TEXT,
+    "phone" TEXT,
+    "address" TEXT,
+    "enabledProducts" JSONB NOT NULL DEFAULT '{}',
+    "systemSettings" JSONB NOT NULL DEFAULT '{}',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "organizations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "memberships" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "role" "MembershipRole" NOT NULL DEFAULT 'MEMBER',
+    "productPermissions" JSONB NOT NULL DEFAULT '{}',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "memberships_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "invitations" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "role" "MembershipRole" NOT NULL DEFAULT 'MEMBER',
+    "token" TEXT NOT NULL,
+    "status" "InvitationStatus" NOT NULL DEFAULT 'PENDING',
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "productPermissions" JSONB NOT NULL DEFAULT '{}',
+    "acceptedByUserId" TEXT,
+    "acceptedAt" TIMESTAMP(3),
+    "invitedByUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "invitations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "api_keys" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "keyHash" TEXT NOT NULL,
+    "keyPrefix" TEXT NOT NULL,
+    "scopes" JSONB NOT NULL DEFAULT '[]',
+    "description" TEXT,
+    "lastUsedAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "audit_logs" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT,
+    "userId" TEXT,
+    "action" TEXT NOT NULL,
+    "resource" TEXT,
+    "resourceId" TEXT,
+    "metadata" JSONB,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "affiliate_data" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "balance" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "referralCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "affiliate_data_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_firebaseUid_key" ON "users"("firebaseUid");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_affiliateCode_key" ON "users"("affiliateCode");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "organizations_slug_key" ON "organizations"("slug");
+
+-- CreateIndex
+CREATE INDEX "memberships_organizationId_idx" ON "memberships"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "memberships_userId_idx" ON "memberships"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "memberships_userId_organizationId_key" ON "memberships"("userId", "organizationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "invitations_token_key" ON "invitations"("token");
+
+-- CreateIndex
+CREATE INDEX "invitations_organizationId_idx" ON "invitations"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "invitations_token_idx" ON "invitations"("token");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "invitations_organizationId_email_key" ON "invitations"("organizationId", "email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "api_keys_keyHash_key" ON "api_keys"("keyHash");
+
+-- CreateIndex
+CREATE INDEX "api_keys_organizationId_idx" ON "api_keys"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "api_keys_keyPrefix_idx" ON "api_keys"("keyPrefix");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_organizationId_createdAt_idx" ON "audit_logs"("organizationId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_userId_idx" ON "audit_logs"("userId");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_action_idx" ON "audit_logs"("action");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "affiliate_data_userId_key" ON "affiliate_data"("userId");
+
+-- AddForeignKey
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_acceptedByUserId_fkey" FOREIGN KEY ("acceptedByUserId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "affiliate_data" ADD CONSTRAINT "affiliate_data_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+</file>
+
+<file path="src/api-keys/api-keys.controller.ts">
+import {
+  Controller, Get, Post, Delete,
+  Param, Body, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { ApiKeysService } from './api-keys.service';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { Tenant } from '../common/decorators/tenant.decorator';
+import type { TenantContext } from '../common/types/tenant-context';
+import { Roles } from '../common/decorators/roles.decorator';
+
+@Controller('organizations/me/api-keys')
+export class ApiKeysController {
+  constructor(private readonly svc: ApiKeysService) {}
+
+  /** GET /api/v1/organizations/me/api-keys */
+  @Get()
+  list(@Tenant() tenant: TenantContext) {
+    return this.svc.list(tenant.organizationId);
+  }
+
+  /** POST /api/v1/organizations/me/api-keys */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @Roles('OWNER', 'ADMIN')
+  create(
+    @Tenant() tenant: TenantContext,
+    @Body() dto: CreateApiKeyDto,
+  ) {
+    return this.svc.create(tenant.organizationId, tenant.userId, dto);
+  }
+
+  /** DELETE /api/v1/organizations/me/api-keys/:id */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @Roles('OWNER', 'ADMIN')
+  revoke(
+    @Tenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.svc.revoke(tenant.organizationId, tenant.userId, id);
+  }
+}
+</file>
+
+<file path="src/api-keys/api-keys.module.ts">
+import { Module } from '@nestjs/common';
+import { ApiKeysController } from './api-keys.controller';
+import { ApiKeysService } from './api-keys.service';
+import { AuditModule } from '../audit/audit.module';
+
+@Module({
+  imports:     [AuditModule],
+  controllers: [ApiKeysController],
+  providers:   [ApiKeysService],
+  exports:     [ApiKeysService],
+})
+export class ApiKeysModule {}
+</file>
+
+<file path="src/api-keys/api-keys.service.ts">
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { ApiKeyScope } from '@prisma/client';
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
+
+const BCRYPT_ROUNDS = 10;
+const KEY_PREFIX    = 'sk_live_';
+
+@Injectable()
+export class ApiKeysService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  async create(organizationId: string, actorUserId: string, dto: CreateApiKeyDto) {
+    const rawKey  = `${KEY_PREFIX}${crypto.randomBytes(32).toString('hex')}`;
+    const keyHash = await bcrypt.hash(rawKey, BCRYPT_ROUNDS);
+    const keyPrefix = rawKey.substring(0, 12);
+
+    const apiKey = await this.prisma.apiKey.create({
+      data: {
+        organizationId,
+        name:        dto.name,
+        description: dto.description,
+        keyHash,
+        keyPrefix,
+        scopes:    dto.scopes as unknown as any,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      },
+    });
+
+    this.audit.log({
+      organizationId,
+      userId:     actorUserId,
+      action:     'apikey.create',
+      resource:   'api_key',
+      resourceId: apiKey.id,
+      metadata:   { name: dto.name, scopes: dto.scopes },
+    });
+
+    // Devolver la key en claro UNA sola vez
+    return {
+      id:          apiKey.id,
+      name:        apiKey.name,
+      description: apiKey.description,
+      key:         rawKey,
+      keyPrefix,
+      scopes:      dto.scopes,
+      expiresAt:   apiKey.expiresAt,
+      createdAt:   apiKey.createdAt,
+    };
+  }
+
+  async list(organizationId: string) {
+    const keys = await this.prisma.apiKey.findMany({
+      where:   { organizationId, revokedAt: null },
+      select:  {
+        id: true, name: true, description: true,
+        keyPrefix: true, scopes: true,
+        lastUsedAt: true, expiresAt: true, createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: keys.map((k) => ({
+        ...k,
+        scopes: k.scopes as unknown as ApiKeyScope[],
+        isExpired: k.expiresAt ? new Date() > k.expiresAt : false,
+      })),
+    };
+  }
+
+  async revoke(organizationId: string, actorUserId: string, keyId: string) {
+    const key = await this.prisma.apiKey.findFirst({
+      where: { id: keyId, organizationId },
+    });
+
+    if (!key) throw new NotFoundException('API Key no encontrada');
+    if (key.revokedAt) throw new ForbiddenException('La key ya está revocada');
+
+    await this.prisma.apiKey.update({
+      where: { id: keyId },
+      data:  { revokedAt: new Date() },
+    });
+
+    this.audit.log({
+      organizationId,
+      userId:     actorUserId,
+      action:     'apikey.revoke',
+      resource:   'api_key',
+      resourceId: keyId,
+      metadata:   { name: key.name },
+    });
+
+    return { success: true, message: 'API Key revocada exitosamente' };
+  }
+
+  /**
+   * Valida una raw key recibida en el header x-api-key.
+   * Usada por ApiKeyAuthGuard en todos los sistemas del ecosistema.
+   */
+  async validate(rawKey: string) {
+    if (!rawKey.startsWith(KEY_PREFIX)) {
+      throw new UnauthorizedException('Formato de API Key inválido');
+    }
+
+    const keyPrefix = rawKey.substring(0, 12);
+    const candidates = await this.prisma.apiKey.findMany({
+      where: {
+        keyPrefix,
+        revokedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: { organization: true },
+    });
+
+    for (const candidate of candidates) {
+      const valid = await bcrypt.compare(rawKey, candidate.keyHash);
+      if (valid) {
+        void this.prisma.apiKey
+          .update({ where: { id: candidate.id }, data: { lastUsedAt: new Date() } })
+          .catch(() => null);
+
+        return {
+          ...candidate,
+          scopes: candidate.scopes as unknown as ApiKeyScope[],
+        };
+      }
+    }
+
+    throw new UnauthorizedException('API Key inválida o expirada');
+  }
+}
+</file>
+
+<file path="src/api-keys/dto/create-api-key.dto.ts">
+import {
+  IsString, IsArray, IsEnum, IsOptional,
+  IsDateString, MaxLength, MinLength, ArrayNotEmpty,
+} from 'class-validator';
+import { ApiKeyScope } from '@prisma/client';
+
+export class CreateApiKeyDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  name: string;
+
+  @IsArray()
+  @ArrayNotEmpty({ message: 'Debe especificar al menos un scope' })
+  @IsEnum(ApiKeyScope, { each: true, message: 'Scope inválido' })
+  scopes: ApiKeyScope[];
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  description?: string;
+
+  @IsDateString()
+  @IsOptional()
+  expiresAt?: string;
+}
+</file>
+
+<file path="src/audit/audit.controller.ts">
+import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { AuditService } from './audit.service';
+import { Tenant } from '../common/decorators/tenant.decorator';
+import type { TenantContext } from '../common/types/tenant-context';
+import { Roles } from '../common/decorators/roles.decorator';
+
+@Controller('organizations/me/audit')
+export class AuditController {
+  constructor(private readonly svc: AuditService) {}
+
+  /** GET /api/v1/organizations/me/audit?take=50&skip=0 */
+  @Get()
+  @Roles('OWNER', 'ADMIN')
+  getAuditLog(
+    @Tenant() tenant: TenantContext,
+    @Query('take', new DefaultValuePipe(50), ParseIntPipe) take: number,
+    @Query('skip', new DefaultValuePipe(0),  ParseIntPipe) skip: number,
+  ) {
+    return this.svc.getByOrg(tenant.organizationId, take, skip);
+  }
+}
+</file>
+
+<file path="src/audit/audit.module.ts">
+import { Module } from '@nestjs/common';
+import { AuditController } from './audit.controller';
+import { AuditService } from './audit.service';
+
+@Module({
+  controllers: [AuditController],
+  providers:   [AuditService],
+  exports:     [AuditService],
+})
+export class AuditModule {}
+</file>
+
+<file path="src/audit/audit.service.ts">
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  log(params: {
+    organizationId?: string;
+    userId?:         string;
+    action:          string;
+    resource?:       string;
+    resourceId?:     string;
+    metadata?:       Prisma.InputJsonValue;
+    ipAddress?:      string;
+    userAgent?:      string;
+  }): void {
+    void this.prisma.auditLog
+      .create({
+        data: {
+          organizationId: params.organizationId,
+          userId:         params.userId,
+          action:         params.action,
+          resource:       params.resource,
+          resourceId:     params.resourceId,
+          metadata:       params.metadata ?? Prisma.JsonNull,
+          ipAddress:      params.ipAddress,
+          userAgent:      params.userAgent,
+        },
+      })
+      .catch((err) => this.logger.error('AuditLog write failed:', err));
+  }
+
+  async getByOrg(organizationId: string, take = 50, skip = 0) {
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where:   { organizationId },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+        include: {
+          user: { select: { email: true, displayName: true, avatarUrl: true } },
+        },
+      }),
+      this.prisma.auditLog.count({ where: { organizationId } }),
+    ]);
+
+    return { success: true, data: { logs, total, take, skip } };
+  }
+}
+</file>
+
+<file path="src/common/decorators/roles.decorator.ts">
+import { SetMetadata } from '@nestjs/common';
+import type { MembershipRole } from '@prisma/client';
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: MembershipRole[]) => SetMetadata(ROLES_KEY, roles);
+</file>
+
+<file path="src/common/decorators/tenant.decorator.ts">
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { TenantContext } from '../types/tenant-context';
+
+export const Tenant = createParamDecorator(
+  (_: unknown, ctx: ExecutionContext): TenantContext =>
+    ctx.switchToHttp().getRequest().tenant,
+);
+</file>
+
+<file path="src/common/guards/api-key-auth.guard.ts">
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+} from '@nestjs/common';
+import { MembershipRole } from '@prisma/client';
+import { ApiKeysService } from '../../api-keys/api-keys.service';
+
+@Injectable()
+export class ApiKeyAuthGuard implements CanActivate {
+  constructor(private readonly apiKeysService: ApiKeysService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const rawKey = request.headers['x-api-key'] as string;
+
+    if (!rawKey) return false;
+
+    try {
+      const apiKey = await this.apiKeysService.validateApiKey(rawKey);
+
+      request['tenant'] = {
+        organizationId: apiKey.organizationId,
+        role: MembershipRole.MEMBER,
+        apiKeyScopes: apiKey.scopes,
+      };
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+</file>
+
+<file path="src/common/guards/roles.guard.ts">
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import type { MembershipRole } from '@prisma/client';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+
+const HIERARCHY: Record<string, number> = {
+  OWNER: 4,
+  ADMIN: 3,
+  MEMBER: 2,
+  VIEWER: 1,
+};
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(ctx: ExecutionContext): boolean {
+    const required = this.reflector.getAllAndOverride<MembershipRole[]>(ROLES_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+
+    if (!required?.length) return true;
+
+    const { tenant } = ctx.switchToHttp().getRequest();
+    if (!tenant) throw new ForbiddenException('Tenant context requerido');
+
+    const userLevel = HIERARCHY[tenant.role] ?? 0;
+    const minLevel  = Math.min(...required.map((r) => HIERARCHY[r] ?? 0));
+
+    if (userLevel < minLevel) {
+      throw new ForbiddenException(
+        `Rol requerido: ${required.join(' o ')}. Tu rol actual: ${tenant.role}`,
+      );
+    }
+
+    return true;
+  }
+}
+</file>
+
+<file path="src/common/guards/step-up.guard.ts">
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { Request } from 'express';
+import * as admin from 'firebase-admin';
+
+@Injectable()
+export class StepUpAuthGuard implements CanActivate {
+  private readonly STEPUP_WINDOW_MS = 5 * 60 * 1000; // 5 minutos
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const token = this.extractToken(request);
+
+    if (!token) {
+      throw new ForbiddenException('Token requerido para esta acción');
+    }
+
+    const decodedToken = await admin.app().auth().verifyIdToken(token);
+    const authTime = decodedToken.auth_time * 1000;
+    const now = Date.now();
+
+    if (now - authTime > this.STEPUP_WINDOW_MS) {
+      throw new ForbiddenException(
+        'Esta acción requiere re-autenticación reciente. ' +
+          'Por favor iniciá sesión nuevamente.',
+      );
+    }
+
+    return true;
+  }
+
+  private extractToken(request: Request): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}
+</file>
+
+<file path="src/common/guards/tenant.guard.ts">
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { TenantContext } from '../types/tenant-context';
+
+/**
+ * Valida que el usuario autenticado pertenezca a la organización
+ * indicada en el header x-organization-id e inyecta TenantContext.
+ *
+ * Uso: aplicar junto a FirebaseAuthGuard en rutas que necesiten contexto de org.
+ */
+@Injectable()
+export class TenantGuard implements CanActivate {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req            = ctx.switchToHttp().getRequest();
+    const user           = req.user;
+    const organizationId = req.headers['x-organization-id'] as string;
+
+    if (!organizationId) {
+      throw new ForbiddenException('Header x-organization-id requerido');
+    }
+
+    const dbUser = await this.prisma.user.findUnique({
+      where: { firebaseUid: user.uid },
+    });
+
+    if (!dbUser) throw new ForbiddenException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_organizationId: { userId: dbUser.id, organizationId } },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('No tenés acceso a esta organización');
+    }
+
+    const tenantCtx: TenantContext = {
+      userId:             dbUser.id,
+      organizationId,
+      role:               membership.role,
+      productPermissions: (membership.productPermissions as any) ?? {},
+    };
+
+    req.tenant = tenantCtx;
+    return true;
+  }
+}
+</file>
+
+<file path="src/common/types/tenant-context.ts">
+import type { MembershipRole } from '@prisma/client';
+
+export interface ProductPermissions {
+  canRead:  boolean;
+  canWrite: boolean;
+}
+
+export interface TenantProductPermissions {
+  payments?: ProductPermissions;
+  chat?:     ProductPermissions;
+  ads?:      ProductPermissions;
+  [key: string]: ProductPermissions | undefined;
+}
+
+/**
+ * Inyectado por TenantGuard en request.tenant.
+ * Disponible en cualquier endpoint que use @Tenant().
+ */
+export interface TenantContext {
+  userId:             string;
+  organizationId:     string;
+  role:               MembershipRole;
+  productPermissions: TenantProductPermissions;
+  apiKeyScopes?:      string[];
+}
+</file>
+
+<file path="src/firebase/firebase.module.ts">
+import { Global, Module, OnModuleInit, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as admin from 'firebase-admin';
+
+@Global()
+@Module({})
+export class FirebaseModule implements OnModuleInit {
+  private readonly logger = new Logger(FirebaseModule.name);
+
+  constructor(private readonly config: ConfigService) {}
+
+  onModuleInit(): void {
+    if (admin.apps.length > 0) return;
+
+    const projectId   = this.config.get<string>('FIREBASE_PROJECT_ID');
+    const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL');
+    const privateKey  = this.config.get<string>('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+
+    if (!projectId) {
+      this.logger.warn('FIREBASE_PROJECT_ID no configurado — auth de Firebase deshabilitado');
+      return;
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+
+    this.logger.log(`Firebase Admin inicializado para proyecto: ${projectId}`);
+  }
+}
+</file>
+
+<file path="src/memberships/dto/invite-member.dto.ts">
+import {
+  IsEmail, IsEnum, IsOptional, IsObject, MaxLength,
+} from 'class-validator';
+import { MembershipRole } from '@prisma/client';
+
+export class InviteMemberDto {
+  @IsEmail({}, { message: 'El email debe ser válido' })
+  email: string;
+
+  @IsEnum(MembershipRole, { message: 'Rol inválido. Usar: ADMIN, MEMBER, VIEWER' })
+  @IsOptional()
+  role?: MembershipRole = MembershipRole.MEMBER;
+
+  // { "payments": { "canRead": true, "canWrite": false }, "chat": { ... } }
+  @IsObject()
+  @IsOptional()
+  productPermissions?: Record<string, { canRead: boolean; canWrite: boolean }>;
+
+  @IsOptional()
+  @MaxLength(200)
+  message?: string;   // mensaje personalizado para el email de invitación
+}
+</file>
+
+<file path="src/memberships/dto/update-member.dto.ts">
+import { IsEnum, IsOptional, IsObject } from 'class-validator';
+import { MembershipRole } from '@prisma/client';
+
+export class UpdateMemberDto {
+  @IsEnum(MembershipRole)
+  @IsOptional()
+  role?: MembershipRole;
+
+  @IsObject()
+  @IsOptional()
+  productPermissions?: Record<string, { canRead: boolean; canWrite: boolean }>;
+}
+</file>
+
+<file path="src/memberships/memberships.controller.ts">
+import {
+  Controller, Get, Post, Patch, Delete,
+  Param, Body, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { MembershipsService } from './memberships.service';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/guards/firebase-auth.guard';
+
+@Controller()
+export class MembershipsController {
+  constructor(private readonly svc: MembershipsService) {}
+
+  /** GET /api/v1/organizations/me/members */
+  @Get('organizations/me/members')
+  listMembers(@CurrentUser() user: CurrentUserPayload) {
+    return this.svc.listMembers(user.uid);
+  }
+
+  /** POST /api/v1/organizations/me/members/invite */
+  @Post('organizations/me/members/invite')
+  @HttpCode(HttpStatus.CREATED)
+  inviteMember(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.svc.inviteMember(user.uid, dto);
+  }
+
+  /** PATCH /api/v1/organizations/me/members/:membershipId */
+  @Patch('organizations/me/members/:membershipId')
+  @HttpCode(HttpStatus.OK)
+  updateMember(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('membershipId') membershipId: string,
+    @Body() dto: UpdateMemberDto,
+  ) {
+    return this.svc.updateMember(user.uid, membershipId, dto);
+  }
+
+  /** DELETE /api/v1/organizations/me/members/:membershipId */
+  @Delete('organizations/me/members/:membershipId')
+  @HttpCode(HttpStatus.OK)
+  removeMember(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('membershipId') membershipId: string,
+  ) {
+    return this.svc.removeMember(user.uid, membershipId);
+  }
+
+  // ─── Invitaciones ─────────────────────────────────────────────────────────
+
+  /** GET /api/v1/invitations/:token  (pública) */
+  @Public()
+  @Get('invitations/:token')
+  getInvitationInfo(@Param('token') token: string) {
+    return this.svc.getInvitationInfo(token);
+  }
+
+  /** POST /api/v1/invitations/:token/accept */
+  @Post('invitations/:token/accept')
+  @HttpCode(HttpStatus.OK)
+  acceptInvitation(
+    @Param('token') token: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.svc.acceptInvitation(token, user.uid);
+  }
+
+  /** DELETE /api/v1/organizations/me/invitations/:invitationId */
+  @Delete('organizations/me/invitations/:invitationId')
+  @HttpCode(HttpStatus.OK)
+  revokeInvitation(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.svc.revokeInvitation(user.uid, invitationId);
+  }
+}
+</file>
+
+<file path="src/memberships/memberships.module.ts">
+import { Module } from '@nestjs/common';
+import { MembershipsController } from './memberships.controller';
+import { MembershipsService } from './memberships.service';
+import { AuditModule } from '../audit/audit.module';
+
+@Module({
+  imports:     [AuditModule],
+  controllers: [MembershipsController],
+  providers:   [MembershipsService],
+  exports:     [MembershipsService],
+})
+export class MembershipsModule {}
+</file>
+
+<file path="src/memberships/memberships.service.ts">
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { InvitationStatus, MembershipRole } from '@prisma/client';
+
+const INVITATION_EXPIRY_DAYS = 7;
+
+@Injectable()
+export class MembershipsService {
+  private readonly logger = new Logger(MembershipsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  // ─── Helper: obtener org donde el user es OWNER o ADMIN ───────────────────
+
+  private async requireAdminOrOwner(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where: {
+        userId: user.id,
+        role:   { in: [MembershipRole.OWNER, MembershipRole.ADMIN] },
+      },
+      include: { organization: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Se requiere rol OWNER o ADMIN para esta acción');
+    }
+
+    return { user, org: membership.organization, role: membership.role };
+  }
+
+  // ─── Listar miembros ───────────────────────────────────────────────────────
+
+  async listMembers(firebaseUid: string) {
+    const { org } = await this.requireAdminOrOwner(firebaseUid);
+
+    const [members, pendingInvitations] = await Promise.all([
+      this.prisma.membership.findMany({
+        where:   { organizationId: org.id },
+        include: {
+          user: {
+            select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.invitation.findMany({
+        where: {
+          organizationId: org.id,
+          status:         InvitationStatus.PENDING,
+          expiresAt:      { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        members: members.map((m) => ({
+          membershipId:       m.id,
+          userId:             m.userId,
+          email:              m.user.email,
+          displayName:        m.user.displayName,
+          avatarUrl:          m.user.avatarUrl,
+          role:               m.role,
+          productPermissions: m.productPermissions,
+          joinedAt:           m.createdAt,
+        })),
+        pendingInvitations,
+      },
+    };
+  }
+
+  // ─── Invitar miembro ───────────────────────────────────────────────────────
+
+  async inviteMember(firebaseUid: string, dto: InviteMemberDto) {
+    const { user: owner, org } = await this.requireAdminOrOwner(firebaseUid);
+    const emailNorm            = dto.email.toLowerCase();
+
+    if (emailNorm === owner.email.toLowerCase()) {
+      throw new BadRequestException('No podés invitarte a vos mismo');
+    }
+
+    // Verificar que no sea ya miembro
+    const alreadyMember = await this.prisma.membership.findFirst({
+      where: {
+        organizationId: org.id,
+        user:           { email: emailNorm },
+      },
+    });
+    if (alreadyMember) {
+      throw new BadRequestException('Este email ya es miembro de la organización');
+    }
+
+    // Invalidar invitaciones previas pendientes para este email
+    await this.prisma.invitation.updateMany({
+      where: {
+        organizationId: org.id,
+        email:          emailNorm,
+        status:         InvitationStatus.PENDING,
+      },
+      data: { status: InvitationStatus.REVOKED },
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + INVITATION_EXPIRY_DAYS);
+
+    const invitation = await this.prisma.invitation.create({
+      data: {
+        organizationId:     org.id,
+        email:              emailNorm,
+        role:               dto.role ?? MembershipRole.MEMBER,
+        expiresAt,
+        productPermissions: (dto.productPermissions ?? {}) as any,
+        invitedByUserId:    owner.id,
+        status:             InvitationStatus.PENDING,
+      },
+    });
+
+    const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3001'}/invite/${invitation.token}`;
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         owner.id,
+      action:         'member.invite',
+      resource:       'invitation',
+      resourceId:     invitation.id,
+      metadata:       { email: emailNorm, role: dto.role },
+    });
+
+    this.logger.log(`Invitación enviada a ${emailNorm} para org ${org.id}`);
+
+    return {
+      success: true,
+      message: 'Invitación generada exitosamente',
+      data:    { invitation, inviteLink, expiresAt },
+    };
+  }
+
+  // ─── Actualizar miembro ────────────────────────────────────────────────────
+
+  async updateMember(firebaseUid: string, membershipId: string, dto: UpdateMemberDto) {
+    const { user: actor, org, role: actorRole } = await this.requireAdminOrOwner(firebaseUid);
+
+    const membership = await this.prisma.membership.findFirst({
+      where: { id: membershipId, organizationId: org.id },
+    });
+
+    if (!membership) throw new NotFoundException('Miembro no encontrado');
+
+    // ADMIN no puede cambiar el rol de un OWNER
+    if (
+      actorRole === MembershipRole.ADMIN &&
+      membership.role === MembershipRole.OWNER
+    ) {
+      throw new ForbiddenException('No podés modificar al OWNER de la organización');
+    }
+
+    // Nadie puede degradar a otro OWNER (solo el OWNER puede hacerlo sobre sí mismo)
+    if (dto.role && membership.role === MembershipRole.OWNER && dto.role !== MembershipRole.OWNER) {
+      throw new ForbiddenException('No podés cambiar el rol del OWNER');
+    }
+
+    const updated = await this.prisma.membership.update({
+      where: { id: membershipId },
+      data:  {
+        ...(dto.role               !== undefined && { role:               dto.role }),
+        ...(dto.productPermissions !== undefined && { productPermissions: dto.productPermissions as any }),
+      },
+      include: {
+        user: { select: { email: true, displayName: true } },
+      },
+    });
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         actor.id,
+      action:         'member.update',
+      resource:       'membership',
+      resourceId:     membershipId,
+      metadata:       dto as any,
+    });
+
+    return { success: true, message: 'Miembro actualizado', data: updated };
+  }
+
+  // ─── Remover miembro ───────────────────────────────────────────────────────
+
+  async removeMember(firebaseUid: string, membershipId: string) {
+    const { user: actor, org } = await this.requireAdminOrOwner(firebaseUid);
+
+    const membership = await this.prisma.membership.findFirst({
+      where: { id: membershipId, organizationId: org.id },
+      include: { user: { select: { email: true } } },
+    });
+
+    if (!membership) throw new NotFoundException('Miembro no encontrado');
+
+    if (membership.role === MembershipRole.OWNER) {
+      throw new ForbiddenException('No podés remover al OWNER de la organización');
+    }
+
+    if (membership.userId === actor.id) {
+      throw new BadRequestException('No podés removerte a vos mismo');
+    }
+
+    await this.prisma.membership.delete({ where: { id: membershipId } });
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         actor.id,
+      action:         'member.remove',
+      resource:       'membership',
+      resourceId:     membershipId,
+      metadata:       { removedEmail: membership.user.email },
+    });
+
+    return { success: true, message: 'Miembro removido de la organización' };
+  }
+
+  // ─── Info de invitación (pública) ─────────────────────────────────────────
+
+  async getInvitationInfo(token: string) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where:   { token },
+      include: {
+        organization: {
+          select: { id: true, name: true, logoUrl: true, slug: true },
+        },
+      },
+    });
+
+    if (!invitation)                                   throw new NotFoundException('Invitación no encontrada');
+    if (invitation.status === InvitationStatus.REVOKED) throw new BadRequestException('Esta invitación fue cancelada');
+    if (invitation.status === InvitationStatus.ACCEPTED) throw new BadRequestException('Esta invitación ya fue utilizada');
+    if (new Date() > invitation.expiresAt)             throw new BadRequestException('Esta invitación expiró');
+
+    return {
+      success: true,
+      data: {
+        email:              invitation.email,
+        role:               invitation.role,
+        organization:       invitation.organization,
+        productPermissions: invitation.productPermissions,
+        expiresAt:          invitation.expiresAt,
+      },
+    };
+  }
+
+  // ─── Aceptar invitación ───────────────────────────────────────────────────
+
+  async acceptInvitation(token: string, firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado. Llamá a /auth/sync primero.');
+
+    const invitation = await this.prisma.invitation.findUnique({ where: { token } });
+
+    if (!invitation)                                    throw new NotFoundException('Invitación no encontrada');
+    if (invitation.status === InvitationStatus.ACCEPTED) throw new BadRequestException('Esta invitación ya fue utilizada');
+    if (invitation.status === InvitationStatus.REVOKED)  throw new BadRequestException('Esta invitación fue cancelada');
+    if (new Date() > invitation.expiresAt)              throw new BadRequestException('Esta invitación expiró');
+
+    if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new ForbiddenException(
+        `Esta invitación es para ${invitation.email}. Iniciá sesión con esa cuenta.`,
+      );
+    }
+
+    // Verificar que no sea ya miembro
+    const existing = await this.prisma.membership.findUnique({
+      where: {
+        userId_organizationId: {
+          userId:         user.id,
+          organizationId: invitation.organizationId,
+        },
+      },
+    });
+
+    if (existing) throw new BadRequestException('Ya sos miembro de esta organización');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.membership.create({
+        data: {
+          userId:             user.id,
+          organizationId:     invitation.organizationId,
+          role:               invitation.role,
+          productPermissions: invitation.productPermissions as any,
+        },
+      });
+
+      await tx.invitation.update({
+        where: { id: invitation.id },
+        data:  {
+          status:           InvitationStatus.ACCEPTED,
+          acceptedByUserId: user.id,
+          acceptedAt:       new Date(),
+        },
+      });
+    });
+
+    this.audit.log({
+      organizationId: invitation.organizationId,
+      userId:         user.id,
+      action:         'member.accept_invitation',
+      resource:       'invitation',
+      resourceId:     invitation.id,
+    });
+
+    this.logger.log(`${user.email} aceptó invitación para org ${invitation.organizationId}`);
+
+    return {
+      success: true,
+      message: '¡Bienvenido al equipo! Ya sos miembro activo.',
+    };
+  }
+
+  // ─── Revocar invitación pendiente ─────────────────────────────────────────
+
+  async revokeInvitation(firebaseUid: string, invitationId: string) {
+    const { user: actor, org } = await this.requireAdminOrOwner(firebaseUid);
+
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { id: invitationId, organizationId: org.id },
+    });
+
+    if (!invitation) throw new NotFoundException('Invitación no encontrada');
+
+    if (invitation.status !== InvitationStatus.PENDING) {
+      throw new BadRequestException('Solo se pueden revocar invitaciones pendientes');
+    }
+
+    await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data:  { status: InvitationStatus.REVOKED },
+    });
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         actor.id,
+      action:         'member.revoke_invitation',
+      resource:       'invitation',
+      resourceId:     invitationId,
+      metadata:       { email: invitation.email },
+    });
+
+    return { success: true, message: 'Invitación revocada' };
+  }
+}
+</file>
+
+<file path="x.sh">
+#!/usr/bin/env bash
+# =============================================================================
+# apply-multitenant.sh — Refactor backend a multi-tenant SaaS
+#
+# USO:
+#   chmod +x apply-multitenant.sh
+#   ./apply-multitenant.sh
+#
+# ANTES DE CORRER:
+#   1. Aplicar el schema.prisma manualmente (copiar a prisma/schema.prisma)
+#   2. Correr: pnpm prisma migrate dev --name multitenant_v2
+#   3. Recién entonces ejecutar este script
+#
+# QUÉ HACE:
+#   - Instala dependencias nuevas (Resend para emails, zod para validación interna)
+#   - Crea/reemplaza módulos: firebase, auth, organizations, memberships, invitations, api-keys, audit
+#   - Crea tipos compartidos (TenantContext, ProductPermissions)
+#   - Actualiza app.module.ts
+#   - NO modifica el schema (ya lo hiciste manualmente)
+# =============================================================================
+
+set -e
+BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+log()  { echo -e "${BLUE}[→]${NC} $1"; }
+ok()   { echo -e "${GREEN}[✓]${NC} $1"; }
+warn() { echo -e "${YELLOW}[!]${NC} $1"; }
+
+# ─── 0. Dependencias ──────────────────────────────────────────────────────────
+log "Instalando dependencias..."
+pnpm add resend @nestjs/event-emitter
+pnpm add -D @types/bcrypt
+ok "Dependencias instaladas"
+
+# ─── 1. Tipos compartidos ─────────────────────────────────────────────────────
+log "Creando tipos compartidos..."
+
+mkdir -p src/common/types
+
+cat > src/common/types/tenant-context.ts << 'EOF'
+import type { MembershipRole } from '@prisma/client';
+
+export interface ProductPermissions {
+  canRead:  boolean;
+  canWrite: boolean;
+}
+
+export interface TenantProductPermissions {
+  payments?: ProductPermissions;
+  chat?:     ProductPermissions;
+  ads?:      ProductPermissions;
+  [key: string]: ProductPermissions | undefined;
+}
+
+/**
+ * Inyectado por TenantGuard en request.tenant.
+ * Disponible en cualquier endpoint que use @Tenant().
+ */
+export interface TenantContext {
+  userId:             string;
+  organizationId:     string;
+  role:               MembershipRole;
+  productPermissions: TenantProductPermissions;
+  apiKeyScopes?:      string[];
+}
+EOF
+
+ok "Tipos compartidos creados"
+
+# ─── 2. Firebase Module (singleton limpio) ────────────────────────────────────
+log "Creando FirebaseModule..."
+
+mkdir -p src/firebase
+
+cat > src/firebase/firebase.module.ts << 'EOF'
+import { Global, Module, OnModuleInit, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as admin from 'firebase-admin';
+
+@Global()
+@Module({})
+export class FirebaseModule implements OnModuleInit {
+  private readonly logger = new Logger(FirebaseModule.name);
+
+  constructor(private readonly config: ConfigService) {}
+
+  onModuleInit(): void {
+    if (admin.apps.length > 0) return;
+
+    const projectId   = this.config.get<string>('FIREBASE_PROJECT_ID');
+    const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL');
+    const privateKey  = this.config.get<string>('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+
+    if (!projectId) {
+      this.logger.warn('FIREBASE_PROJECT_ID no configurado — auth de Firebase deshabilitado');
+      return;
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+
+    this.logger.log(`Firebase Admin inicializado para proyecto: ${projectId}`);
+  }
+}
+EOF
+
+ok "FirebaseModule creado"
+
+# ─── 3. Guards ────────────────────────────────────────────────────────────────
+log "Actualizando guards..."
+
+cat > src/common/guards/firebase-auth.guard.ts << 'EOF'
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+  SetMetadata,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+import * as admin from 'firebase-admin';
+
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+
+@Injectable()
+export class FirebaseAuthGuard implements CanActivate {
+  private readonly logger = new Logger(FirebaseAuthGuard.name);
+
+  constructor(private readonly reflector: Reflector) {}
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (isPublic) return true;
+
+    const req   = ctx.switchToHttp().getRequest<Request>();
+    const token = this.extractToken(req);
+
+    if (!token) throw new UnauthorizedException('Token de autenticación requerido');
+
+    if (!admin.apps.length) {
+      throw new UnauthorizedException('Firebase no está configurado en este servidor');
+    }
+
+    try {
+      const decoded = await admin.app().auth().verifyIdToken(token);
+      req['user'] = {
+        uid:           decoded.uid,
+        email:         decoded.email ?? '',
+        emailVerified: decoded.email_verified ?? false,
+        displayName:   decoded.name,
+        avatarUrl:     decoded.picture,
+      };
+      return true;
+    } catch (err) {
+      this.logger.warn(`Token inválido: ${(err as Error).message}`);
+      throw new UnauthorizedException('Token de Firebase inválido o expirado');
+    }
+  }
+
+  private extractToken(req: Request): string | undefined {
+    const [type, token] = req.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}
+EOF
+
+cat > src/common/guards/tenant.guard.ts << 'EOF'
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { TenantContext } from '../types/tenant-context';
+
+/**
+ * Valida que el usuario autenticado pertenezca a la organización
+ * indicada en el header x-organization-id e inyecta TenantContext.
+ *
+ * Uso: aplicar junto a FirebaseAuthGuard en rutas que necesiten contexto de org.
+ */
+@Injectable()
+export class TenantGuard implements CanActivate {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req            = ctx.switchToHttp().getRequest();
+    const user           = req.user;
+    const organizationId = req.headers['x-organization-id'] as string;
+
+    if (!organizationId) {
+      throw new ForbiddenException('Header x-organization-id requerido');
+    }
+
+    const dbUser = await this.prisma.user.findUnique({
+      where: { firebaseUid: user.uid },
+    });
+
+    if (!dbUser) throw new ForbiddenException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_organizationId: { userId: dbUser.id, organizationId } },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('No tenés acceso a esta organización');
+    }
+
+    const tenantCtx: TenantContext = {
+      userId:             dbUser.id,
+      organizationId,
+      role:               membership.role,
+      productPermissions: (membership.productPermissions as any) ?? {},
+    };
+
+    req.tenant = tenantCtx;
+    return true;
+  }
+}
+EOF
+
+cat > src/common/guards/roles.guard.ts << 'EOF'
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import type { MembershipRole } from '@prisma/client';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+
+const HIERARCHY: Record<string, number> = {
+  OWNER: 4,
+  ADMIN: 3,
+  MEMBER: 2,
+  VIEWER: 1,
+};
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(ctx: ExecutionContext): boolean {
+    const required = this.reflector.getAllAndOverride<MembershipRole[]>(ROLES_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+
+    if (!required?.length) return true;
+
+    const { tenant } = ctx.switchToHttp().getRequest();
+    if (!tenant) throw new ForbiddenException('Tenant context requerido');
+
+    const userLevel = HIERARCHY[tenant.role] ?? 0;
+    const minLevel  = Math.min(...required.map((r) => HIERARCHY[r] ?? 0));
+
+    if (userLevel < minLevel) {
+      throw new ForbiddenException(
+        `Rol requerido: ${required.join(' o ')}. Tu rol actual: ${tenant.role}`,
+      );
+    }
+
+    return true;
+  }
+}
+EOF
+
+ok "Guards actualizados"
+
+# ─── 4. Decorators ────────────────────────────────────────────────────────────
+log "Actualizando decorators..."
+
+cat > src/common/decorators/current-user.decorator.ts << 'EOF'
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+
+export interface CurrentUserPayload {
+  uid:           string;
+  email:         string;
+  emailVerified: boolean;
+  displayName?:  string;
+  avatarUrl?:    string;
+}
+
+export const CurrentUser = createParamDecorator(
+  (field: keyof CurrentUserPayload | undefined, ctx: ExecutionContext) => {
+    const user: CurrentUserPayload = ctx.switchToHttp().getRequest().user;
+    return field ? user?.[field] : user;
+  },
+);
+EOF
+
+cat > src/common/decorators/roles.decorator.ts << 'EOF'
+import { SetMetadata } from '@nestjs/common';
+import type { MembershipRole } from '@prisma/client';
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: MembershipRole[]) => SetMetadata(ROLES_KEY, roles);
+EOF
+
+cat > src/common/decorators/tenant.decorator.ts << 'EOF'
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { TenantContext } from '../types/tenant-context';
+
+export const Tenant = createParamDecorator(
+  (_: unknown, ctx: ExecutionContext): TenantContext =>
+    ctx.switchToHttp().getRequest().tenant,
+);
+EOF
+
+ok "Decorators actualizados"
+
+# ─── 5. Auth Module ───────────────────────────────────────────────────────────
+log "Actualizando AuthModule..."
+
+cat > src/auth/dto/sync.dto.ts << 'EOF'
+import { IsOptional, IsString, IsUrl } from 'class-validator';
+
+export class SyncUserDto {
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsUrl({}, { message: 'avatarUrl debe ser una URL válida' })
+  avatarUrl?: string;
+}
+EOF
+
+cat > src/auth/auth.service.ts << 'EOF'
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Sincroniza el usuario de Firebase con la DB.
+   * Si es nuevo lo crea; si existe, actualiza displayName/avatarUrl.
+   * Registra el código de afiliado si se pasa en el primer sync.
+   */
+  async syncUser(
+    firebaseUser: CurrentUserPayload,
+    affiliateCode?: string,
+  ) {
+    const { user, isNew } = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { firebaseUid: firebaseUser.uid },
+        include: {
+          memberships: {
+            include: { organization: true },
+          },
+          affiliateData: true,
+        },
+      });
+
+      if (existing) {
+        // Actualizar nombre/avatar si cambiaron en Firebase
+        const needsUpdate =
+          (firebaseUser.displayName && existing.displayName !== firebaseUser.displayName) ||
+          (firebaseUser.avatarUrl   && existing.avatarUrl   !== firebaseUser.avatarUrl);
+
+        const updated = needsUpdate
+          ? await tx.user.update({
+              where: { id: existing.id },
+              data: {
+                displayName: firebaseUser.displayName ?? existing.displayName,
+                avatarUrl:   firebaseUser.avatarUrl   ?? existing.avatarUrl,
+              },
+              include: {
+                memberships: { include: { organization: true } },
+                affiliateData: true,
+              },
+            })
+          : existing;
+
+        return { user: updated, isNew: false };
+      }
+
+      const created = await tx.user.create({
+        data: {
+          firebaseUid: firebaseUser.uid,
+          email:       firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          avatarUrl:   firebaseUser.avatarUrl,
+        },
+        include: {
+          memberships: { include: { organization: true } },
+          affiliateData: true,
+        },
+      });
+
+      return { user: created, isNew: true };
+    });
+
+    // Registrar referido en background (no bloquea la respuesta)
+    if (isNew && affiliateCode) {
+      this.registerReferral(user.id, affiliateCode).catch((err) =>
+        this.logger.warn(`Error registrando referido ${affiliateCode}: ${(err as Error).message}`),
+      );
+    }
+
+    if (isNew) {
+      this.logger.log(`Nuevo usuario: ${user.email}`);
+    }
+
+    return { user, isNew };
+  }
+
+  /**
+   * Devuelve el perfil completo del usuario autenticado + sus orgs + permisos.
+   * Los frontends de todos los sistemas llaman a este endpoint al iniciar.
+   */
+  async getMe(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid },
+      include: {
+        memberships: {
+          include: {
+            organization: {
+              select: {
+                id:              true,
+                name:            true,
+                slug:            true,
+                logoUrl:         true,
+                enabledProducts: true,
+              },
+            },
+          },
+        },
+        affiliateData: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id:          user.id,
+      firebaseUid: user.firebaseUid,
+      email:       user.email,
+      displayName: user.displayName,
+      avatarUrl:   user.avatarUrl,
+      organizations: user.memberships.map((m) => ({
+        id:                 m.organization.id,
+        name:               m.organization.name,
+        slug:               m.organization.slug,
+        logoUrl:            m.organization.logoUrl,
+        enabledProducts:    m.organization.enabledProducts,
+        role:               m.role,
+        productPermissions: m.productPermissions,
+        membershipId:       m.id,
+      })),
+      affiliateData: user.affiliateData,
+      isAffiliate:   !!user.affiliateData,
+    };
+  }
+
+  private async registerReferral(newUserId: string, affiliateCode: string): Promise<void> {
+    const affiliate = await this.prisma.user.findUnique({
+      where: { affiliateCode },
+      include: { affiliateData: true },
+    });
+
+    if (!affiliate?.affiliateData) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: newUserId },
+        data: { referredByCode: affiliateCode },
+      });
+      await tx.affiliateData.update({
+        where: { userId: affiliate.id },
+        data: { referralCount: { increment: 1 } },
+      });
+    });
+  }
+}
+EOF
+
+cat > src/auth/auth.controller.ts << 'EOF'
+import {
+  Controller,
+  Post,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Query,
+  Body,
+  NotFoundException,
+} from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { SyncUserDto } from './dto/sync.dto';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  /**
+   * POST /api/v1/auth/sync?ref=RE-XXXXXXXX
+   * Primer llamado tras login en Firebase.
+   * Todos los sistemas del ecosistema llaman a este endpoint con el mismo token.
+   */
+  @Post('sync')
+  @HttpCode(HttpStatus.OK)
+  async syncUser(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() _dto: SyncUserDto,       // body opcional, los datos vienen del token
+    @Query('ref') affiliateCode?: string,
+  ) {
+    const firebaseUser = {
+      ...user,
+      displayName: user.displayName,
+      avatarUrl:   user.avatarUrl,
+    };
+
+    const result = await this.authService.syncUser(firebaseUser, affiliateCode);
+
+    return {
+      success: true,
+      isNew:   result.isNew,
+      message: result.isNew ? 'Usuario creado' : 'Usuario sincronizado',
+      data:    result.user,
+    };
+  }
+
+  /**
+   * GET /api/v1/auth/me
+   * Perfil completo: datos personales + todas las orgs + permisos por producto.
+   * Todos los frontends usan este endpoint para hidratar su contexto inicial.
+   */
+  @Get('me')
+  async getMe(@CurrentUser() user: CurrentUserPayload) {
+    const profile = await this.authService.getMe(user.uid);
+    if (!profile) throw new NotFoundException('Usuario no encontrado. Llamá a /auth/sync primero.');
+    return { success: true, data: profile };
+  }
+}
+EOF
+
+cat > src/auth/auth.module.ts << 'EOF'
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { AffiliatesModule } from '../affiliate/affiliate.module';
+
+@Module({
+  imports:     [AffiliatesModule],
+  controllers: [AuthController],
+  providers:   [AuthService],
+  exports:     [AuthService],
+})
+export class AuthModule {}
+EOF
+
+ok "AuthModule actualizado"
+
+# ─── 6. Organizations Module ──────────────────────────────────────────────────
+log "Actualizando OrganizationsModule..."
+
+cat > src/organizations/dto/update-organization.dto.ts << 'EOF'
+import {
+  IsString, IsOptional, IsUrl, MaxLength, MinLength,
+  IsObject,
+} from 'class-validator';
+
+export class UpdateOrganizationDto {
+  @IsString()
+  @IsOptional()
+  @MinLength(2)
+  @MaxLength(100)
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  // Solo letras minúsculas, números y guiones
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsUrl()
+  logoUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
+  website?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  address?: string;
+
+  // Qué sistemas tiene habilitados esta org
+  // { "payments": true, "chat": true, "ads": false }
+  @IsObject()
+  @IsOptional()
+  enabledProducts?: Record<string, boolean>;
+
+  // Config por sistema — libre
+  @IsObject()
+  @IsOptional()
+  systemSettings?: Record<string, unknown>;
+}
+EOF
+
+cat > src/organizations/organizations.service.ts << 'EOF'
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { MembershipRole, Prisma } from '@prisma/client';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+
+@Injectable()
+export class OrganizationsService {
+  private readonly logger = new Logger(OrganizationsService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 60);
+  }
+
+  private async ensureSlugUnique(slug: string, excludeId?: string): Promise<string> {
+    const base    = this.slugify(slug);
+    let candidate = base;
+    let i         = 1;
+
+    while (true) {
+      const existing = await this.prisma.organization.findUnique({
+        where: { slug: candidate },
+      });
+      if (!existing || existing.id === excludeId) return candidate;
+      candidate = `${base}-${i++}`;
+    }
+  }
+
+  // ─── Crear org para un usuario (llamado desde UsersService) ───────────────
+
+  async createForUser(userId: string, orgName?: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+
+    const baseSlug = orgName ? this.slugify(orgName) : `org-${userId.substring(0, 8)}`;
+    const slug     = await this.ensureSlugUnique(baseSlug);
+
+    return client.organization.create({
+      data: {
+        name: orgName ?? null,
+        slug,
+        enabledProducts: {},
+        systemSettings:  {},
+        memberships: {
+          create: {
+            userId,
+            role:               MembershipRole.OWNER,
+            productPermissions: {},
+          },
+        },
+      },
+      include: { memberships: true },
+    });
+  }
+
+  // ─── Leer ──────────────────────────────────────────────────────────────────
+
+  async getMyOrganizations(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const memberships = await this.prisma.membership.findMany({
+      where:   { userId: user.id },
+      include: { organization: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      success: true,
+      data: memberships.map((m) => ({
+        ...m.organization,
+        role:               m.role,
+        productPermissions: m.productPermissions,
+        membershipId:       m.id,
+      })),
+    };
+  }
+
+  async getMyOrganization(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where:   { userId: user.id, role: MembershipRole.OWNER },
+      include: { organization: true },
+    });
+
+    if (!membership) throw new NotFoundException('No tenés una organización como Owner');
+
+    return { success: true, data: { ...membership.organization, role: membership.role } };
+  }
+
+  /**
+   * Estadísticas básicas de la org para el Overview del dashboard.
+   */
+  async getOrgStats(organizationId: string) {
+    const [membersCount, keysCount, recentAudit] = await Promise.all([
+      this.prisma.membership.count({ where: { organizationId } }),
+      this.prisma.apiKey.count({ where: { organizationId, revokedAt: null } }),
+      this.prisma.auditLog.findMany({
+        where:   { organizationId },
+        orderBy: { createdAt: 'desc' },
+        take:    10,
+        select:  { id: true, action: true, resource: true, createdAt: true, userId: true },
+      }),
+    ]);
+
+    return { success: true, data: { membersCount, activeApiKeys: keysCount, recentActivity: recentAudit } };
+  }
+
+  // ─── Actualizar ────────────────────────────────────────────────────────────
+
+  async updateMyOrganization(firebaseUid: string, dto: UpdateOrganizationDto) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where: {
+        userId: user.id,
+        role:   { in: [MembershipRole.OWNER, MembershipRole.ADMIN] },
+      },
+      include: { organization: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Solo Owner o Admin pueden editar la organización');
+    }
+
+    const org = membership.organization;
+
+    // Validar slug único si cambió
+    if (dto.slug && dto.slug !== org.slug) {
+      const normalized = this.slugify(dto.slug);
+      const conflict   = await this.prisma.organization.findUnique({ where: { slug: normalized } });
+      if (conflict && conflict.id !== org.id) {
+        throw new BadRequestException(`El slug "${normalized}" ya está en uso`);
+      }
+      dto.slug = normalized;
+    }
+
+    const data: Prisma.OrganizationUpdateInput = {};
+    if (dto.name            !== undefined) data.name            = dto.name;
+    if (dto.slug            !== undefined) data.slug            = dto.slug;
+    if (dto.description     !== undefined) data.description     = dto.description;
+    if (dto.logoUrl         !== undefined) data.logoUrl         = dto.logoUrl;
+    if (dto.website         !== undefined) data.website         = dto.website;
+    if (dto.phone           !== undefined) data.phone           = dto.phone;
+    if (dto.address         !== undefined) data.address         = dto.address;
+    if (dto.enabledProducts !== undefined) data.enabledProducts = dto.enabledProducts as Prisma.InputJsonValue;
+    if (dto.systemSettings  !== undefined) data.systemSettings  = dto.systemSettings  as Prisma.InputJsonValue;
+
+    const updated = await this.prisma.organization.update({
+      where: { id: org.id },
+      data,
+    });
+
+    this.logger.log(`Org ${org.id} actualizada por ${user.email}`);
+    return { success: true, message: 'Organización actualizada', data: updated };
+  }
+}
+EOF
+
+cat > src/organizations/organizations.controller.ts << 'EOF'
+import { Controller, Get, Patch, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { OrganizationsService } from './organizations.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { Tenant } from '../common/decorators/tenant.decorator';
+import type { TenantContext } from '../common/types/tenant-context';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+
+@Controller('organizations')
+export class OrganizationsController {
+  constructor(private readonly svc: OrganizationsService) {}
+
+  /** GET /api/v1/organizations/me — primera org donde el user es OWNER */
+  @Get('me')
+  getMyOrganization(@CurrentUser() user: CurrentUserPayload) {
+    return this.svc.getMyOrganization(user.uid);
+  }
+
+  /** GET /api/v1/organizations — todas las orgs del usuario */
+  @Get()
+  getAllMyOrganizations(@CurrentUser() user: CurrentUserPayload) {
+    return this.svc.getMyOrganizations(user.uid);
+  }
+
+  /** GET /api/v1/organizations/me/stats */
+  @Get('me/stats')
+  getStats(@Tenant() tenant: TenantContext) {
+    return this.svc.getOrgStats(tenant.organizationId);
+  }
+
+  /** PATCH /api/v1/organizations/me */
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  updateMyOrganization(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateOrganizationDto,
+  ) {
+    return this.svc.updateMyOrganization(user.uid, dto);
+  }
+}
+EOF
+
+cat > src/organizations/organizations.module.ts << 'EOF'
+import { Module } from '@nestjs/common';
+import { OrganizationsController } from './organizations.controller';
+import { OrganizationsService } from './organizations.service';
+
+@Module({
+  controllers: [OrganizationsController],
+  providers:   [OrganizationsService],
+  exports:     [OrganizationsService],
+})
+export class OrganizationsModule {}
+EOF
+
+ok "OrganizationsModule actualizado"
+
+# ─── 7. Memberships Module (reemplaza collaborators) ─────────────────────────
+log "Creando MembershipsModule..."
+
+mkdir -p src/memberships/dto
+
+cat > src/memberships/dto/invite-member.dto.ts << 'EOF'
+import {
+  IsEmail, IsEnum, IsOptional, IsObject, MaxLength,
+} from 'class-validator';
+import { MembershipRole } from '@prisma/client';
+
+export class InviteMemberDto {
+  @IsEmail({}, { message: 'El email debe ser válido' })
+  email: string;
+
+  @IsEnum(MembershipRole, { message: 'Rol inválido. Usar: ADMIN, MEMBER, VIEWER' })
+  @IsOptional()
+  role?: MembershipRole = MembershipRole.MEMBER;
+
+  // { "payments": { "canRead": true, "canWrite": false }, "chat": { ... } }
+  @IsObject()
+  @IsOptional()
+  productPermissions?: Record<string, { canRead: boolean; canWrite: boolean }>;
+
+  @IsOptional()
+  @MaxLength(200)
+  message?: string;   // mensaje personalizado para el email de invitación
+}
+EOF
+
+cat > src/memberships/dto/update-member.dto.ts << 'EOF'
+import { IsEnum, IsOptional, IsObject } from 'class-validator';
+import { MembershipRole } from '@prisma/client';
+
+export class UpdateMemberDto {
+  @IsEnum(MembershipRole)
+  @IsOptional()
+  role?: MembershipRole;
+
+  @IsObject()
+  @IsOptional()
+  productPermissions?: Record<string, { canRead: boolean; canWrite: boolean }>;
+}
+EOF
+
+cat > src/memberships/memberships.service.ts << 'EOF'
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { InvitationStatus, MembershipRole } from '@prisma/client';
+
+const INVITATION_EXPIRY_DAYS = 7;
+
+@Injectable()
+export class MembershipsService {
+  private readonly logger = new Logger(MembershipsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  // ─── Helper: obtener org donde el user es OWNER o ADMIN ───────────────────
+
+  private async requireAdminOrOwner(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where: {
+        userId: user.id,
+        role:   { in: [MembershipRole.OWNER, MembershipRole.ADMIN] },
+      },
+      include: { organization: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Se requiere rol OWNER o ADMIN para esta acción');
+    }
+
+    return { user, org: membership.organization, role: membership.role };
+  }
+
+  // ─── Listar miembros ───────────────────────────────────────────────────────
+
+  async listMembers(firebaseUid: string) {
+    const { org } = await this.requireAdminOrOwner(firebaseUid);
+
+    const [members, pendingInvitations] = await Promise.all([
+      this.prisma.membership.findMany({
+        where:   { organizationId: org.id },
+        include: {
+          user: {
+            select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.invitation.findMany({
+        where: {
+          organizationId: org.id,
+          status:         InvitationStatus.PENDING,
+          expiresAt:      { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        members: members.map((m) => ({
+          membershipId:       m.id,
+          userId:             m.userId,
+          email:              m.user.email,
+          displayName:        m.user.displayName,
+          avatarUrl:          m.user.avatarUrl,
+          role:               m.role,
+          productPermissions: m.productPermissions,
+          joinedAt:           m.createdAt,
+        })),
+        pendingInvitations,
+      },
+    };
+  }
+
+  // ─── Invitar miembro ───────────────────────────────────────────────────────
+
+  async inviteMember(firebaseUid: string, dto: InviteMemberDto) {
+    const { user: owner, org } = await this.requireAdminOrOwner(firebaseUid);
+    const emailNorm            = dto.email.toLowerCase();
+
+    if (emailNorm === owner.email.toLowerCase()) {
+      throw new BadRequestException('No podés invitarte a vos mismo');
+    }
+
+    // Verificar que no sea ya miembro
+    const alreadyMember = await this.prisma.membership.findFirst({
+      where: {
+        organizationId: org.id,
+        user:           { email: emailNorm },
+      },
+    });
+    if (alreadyMember) {
+      throw new BadRequestException('Este email ya es miembro de la organización');
+    }
+
+    // Invalidar invitaciones previas pendientes para este email
+    await this.prisma.invitation.updateMany({
+      where: {
+        organizationId: org.id,
+        email:          emailNorm,
+        status:         InvitationStatus.PENDING,
+      },
+      data: { status: InvitationStatus.REVOKED },
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + INVITATION_EXPIRY_DAYS);
+
+    const invitation = await this.prisma.invitation.create({
+      data: {
+        organizationId:     org.id,
+        email:              emailNorm,
+        role:               dto.role ?? MembershipRole.MEMBER,
+        expiresAt,
+        productPermissions: (dto.productPermissions ?? {}) as any,
+        invitedByUserId:    owner.id,
+        status:             InvitationStatus.PENDING,
+      },
+    });
+
+    const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3001'}/invite/${invitation.token}`;
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         owner.id,
+      action:         'member.invite',
+      resource:       'invitation',
+      resourceId:     invitation.id,
+      metadata:       { email: emailNorm, role: dto.role },
+    });
+
+    this.logger.log(`Invitación enviada a ${emailNorm} para org ${org.id}`);
+
+    return {
+      success: true,
+      message: 'Invitación generada exitosamente',
+      data:    { invitation, inviteLink, expiresAt },
+    };
+  }
+
+  // ─── Actualizar miembro ────────────────────────────────────────────────────
+
+  async updateMember(firebaseUid: string, membershipId: string, dto: UpdateMemberDto) {
+    const { user: actor, org, role: actorRole } = await this.requireAdminOrOwner(firebaseUid);
+
+    const membership = await this.prisma.membership.findFirst({
+      where: { id: membershipId, organizationId: org.id },
+    });
+
+    if (!membership) throw new NotFoundException('Miembro no encontrado');
+
+    // ADMIN no puede cambiar el rol de un OWNER
+    if (
+      actorRole === MembershipRole.ADMIN &&
+      membership.role === MembershipRole.OWNER
+    ) {
+      throw new ForbiddenException('No podés modificar al OWNER de la organización');
+    }
+
+    // Nadie puede degradar a otro OWNER (solo el OWNER puede hacerlo sobre sí mismo)
+    if (dto.role && membership.role === MembershipRole.OWNER && dto.role !== MembershipRole.OWNER) {
+      throw new ForbiddenException('No podés cambiar el rol del OWNER');
+    }
+
+    const updated = await this.prisma.membership.update({
+      where: { id: membershipId },
+      data:  {
+        ...(dto.role               !== undefined && { role:               dto.role }),
+        ...(dto.productPermissions !== undefined && { productPermissions: dto.productPermissions as any }),
+      },
+      include: {
+        user: { select: { email: true, displayName: true } },
+      },
+    });
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         actor.id,
+      action:         'member.update',
+      resource:       'membership',
+      resourceId:     membershipId,
+      metadata:       dto as any,
+    });
+
+    return { success: true, message: 'Miembro actualizado', data: updated };
+  }
+
+  // ─── Remover miembro ───────────────────────────────────────────────────────
+
+  async removeMember(firebaseUid: string, membershipId: string) {
+    const { user: actor, org } = await this.requireAdminOrOwner(firebaseUid);
+
+    const membership = await this.prisma.membership.findFirst({
+      where: { id: membershipId, organizationId: org.id },
+      include: { user: { select: { email: true } } },
+    });
+
+    if (!membership) throw new NotFoundException('Miembro no encontrado');
+
+    if (membership.role === MembershipRole.OWNER) {
+      throw new ForbiddenException('No podés remover al OWNER de la organización');
+    }
+
+    if (membership.userId === actor.id) {
+      throw new BadRequestException('No podés removerte a vos mismo');
+    }
+
+    await this.prisma.membership.delete({ where: { id: membershipId } });
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         actor.id,
+      action:         'member.remove',
+      resource:       'membership',
+      resourceId:     membershipId,
+      metadata:       { removedEmail: membership.user.email },
+    });
+
+    return { success: true, message: 'Miembro removido de la organización' };
+  }
+
+  // ─── Info de invitación (pública) ─────────────────────────────────────────
+
+  async getInvitationInfo(token: string) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where:   { token },
+      include: {
+        organization: {
+          select: { id: true, name: true, logoUrl: true, slug: true },
+        },
+      },
+    });
+
+    if (!invitation)                                   throw new NotFoundException('Invitación no encontrada');
+    if (invitation.status === InvitationStatus.REVOKED) throw new BadRequestException('Esta invitación fue cancelada');
+    if (invitation.status === InvitationStatus.ACCEPTED) throw new BadRequestException('Esta invitación ya fue utilizada');
+    if (new Date() > invitation.expiresAt)             throw new BadRequestException('Esta invitación expiró');
+
+    return {
+      success: true,
+      data: {
+        email:              invitation.email,
+        role:               invitation.role,
+        organization:       invitation.organization,
+        productPermissions: invitation.productPermissions,
+        expiresAt:          invitation.expiresAt,
+      },
+    };
+  }
+
+  // ─── Aceptar invitación ───────────────────────────────────────────────────
+
+  async acceptInvitation(token: string, firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado. Llamá a /auth/sync primero.');
+
+    const invitation = await this.prisma.invitation.findUnique({ where: { token } });
+
+    if (!invitation)                                    throw new NotFoundException('Invitación no encontrada');
+    if (invitation.status === InvitationStatus.ACCEPTED) throw new BadRequestException('Esta invitación ya fue utilizada');
+    if (invitation.status === InvitationStatus.REVOKED)  throw new BadRequestException('Esta invitación fue cancelada');
+    if (new Date() > invitation.expiresAt)              throw new BadRequestException('Esta invitación expiró');
+
+    if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new ForbiddenException(
+        `Esta invitación es para ${invitation.email}. Iniciá sesión con esa cuenta.`,
+      );
+    }
+
+    // Verificar que no sea ya miembro
+    const existing = await this.prisma.membership.findUnique({
+      where: {
+        userId_organizationId: {
+          userId:         user.id,
+          organizationId: invitation.organizationId,
+        },
+      },
+    });
+
+    if (existing) throw new BadRequestException('Ya sos miembro de esta organización');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.membership.create({
+        data: {
+          userId:             user.id,
+          organizationId:     invitation.organizationId,
+          role:               invitation.role,
+          productPermissions: invitation.productPermissions as any,
+        },
+      });
+
+      await tx.invitation.update({
+        where: { id: invitation.id },
+        data:  {
+          status:           InvitationStatus.ACCEPTED,
+          acceptedByUserId: user.id,
+          acceptedAt:       new Date(),
+        },
+      });
+    });
+
+    this.audit.log({
+      organizationId: invitation.organizationId,
+      userId:         user.id,
+      action:         'member.accept_invitation',
+      resource:       'invitation',
+      resourceId:     invitation.id,
+    });
+
+    this.logger.log(`${user.email} aceptó invitación para org ${invitation.organizationId}`);
+
+    return {
+      success: true,
+      message: '¡Bienvenido al equipo! Ya sos miembro activo.',
+    };
+  }
+
+  // ─── Revocar invitación pendiente ─────────────────────────────────────────
+
+  async revokeInvitation(firebaseUid: string, invitationId: string) {
+    const { user: actor, org } = await this.requireAdminOrOwner(firebaseUid);
+
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { id: invitationId, organizationId: org.id },
+    });
+
+    if (!invitation) throw new NotFoundException('Invitación no encontrada');
+
+    if (invitation.status !== InvitationStatus.PENDING) {
+      throw new BadRequestException('Solo se pueden revocar invitaciones pendientes');
+    }
+
+    await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data:  { status: InvitationStatus.REVOKED },
+    });
+
+    this.audit.log({
+      organizationId: org.id,
+      userId:         actor.id,
+      action:         'member.revoke_invitation',
+      resource:       'invitation',
+      resourceId:     invitationId,
+      metadata:       { email: invitation.email },
+    });
+
+    return { success: true, message: 'Invitación revocada' };
+  }
+}
+EOF
+
+cat > src/memberships/memberships.controller.ts << 'EOF'
+import {
+  Controller, Get, Post, Patch, Delete,
+  Param, Body, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { MembershipsService } from './memberships.service';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/guards/firebase-auth.guard';
+
+@Controller()
+export class MembershipsController {
+  constructor(private readonly svc: MembershipsService) {}
+
+  /** GET /api/v1/organizations/me/members */
+  @Get('organizations/me/members')
+  listMembers(@CurrentUser() user: CurrentUserPayload) {
+    return this.svc.listMembers(user.uid);
+  }
+
+  /** POST /api/v1/organizations/me/members/invite */
+  @Post('organizations/me/members/invite')
+  @HttpCode(HttpStatus.CREATED)
+  inviteMember(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.svc.inviteMember(user.uid, dto);
+  }
+
+  /** PATCH /api/v1/organizations/me/members/:membershipId */
+  @Patch('organizations/me/members/:membershipId')
+  @HttpCode(HttpStatus.OK)
+  updateMember(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('membershipId') membershipId: string,
+    @Body() dto: UpdateMemberDto,
+  ) {
+    return this.svc.updateMember(user.uid, membershipId, dto);
+  }
+
+  /** DELETE /api/v1/organizations/me/members/:membershipId */
+  @Delete('organizations/me/members/:membershipId')
+  @HttpCode(HttpStatus.OK)
+  removeMember(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('membershipId') membershipId: string,
+  ) {
+    return this.svc.removeMember(user.uid, membershipId);
+  }
+
+  // ─── Invitaciones ─────────────────────────────────────────────────────────
+
+  /** GET /api/v1/invitations/:token  (pública) */
+  @Public()
+  @Get('invitations/:token')
+  getInvitationInfo(@Param('token') token: string) {
+    return this.svc.getInvitationInfo(token);
+  }
+
+  /** POST /api/v1/invitations/:token/accept */
+  @Post('invitations/:token/accept')
+  @HttpCode(HttpStatus.OK)
+  acceptInvitation(
+    @Param('token') token: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.svc.acceptInvitation(token, user.uid);
+  }
+
+  /** DELETE /api/v1/organizations/me/invitations/:invitationId */
+  @Delete('organizations/me/invitations/:invitationId')
+  @HttpCode(HttpStatus.OK)
+  revokeInvitation(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.svc.revokeInvitation(user.uid, invitationId);
+  }
+}
+EOF
+
+cat > src/memberships/memberships.module.ts << 'EOF'
+import { Module } from '@nestjs/common';
+import { MembershipsController } from './memberships.controller';
+import { MembershipsService } from './memberships.service';
+import { AuditModule } from '../audit/audit.module';
+
+@Module({
+  imports:     [AuditModule],
+  controllers: [MembershipsController],
+  providers:   [MembershipsService],
+  exports:     [MembershipsService],
+})
+export class MembershipsModule {}
+EOF
+
+ok "MembershipsModule creado"
+
+# ─── 8. API Keys Module ───────────────────────────────────────────────────────
+log "Actualizando ApiKeysModule..."
+
+mkdir -p src/api-keys/dto
+
+cat > src/api-keys/dto/create-api-key.dto.ts << 'EOF'
+import {
+  IsString, IsArray, IsEnum, IsOptional,
+  IsDateString, MaxLength, MinLength, ArrayNotEmpty,
+} from 'class-validator';
+import { ApiKeyScope } from '@prisma/client';
+
+export class CreateApiKeyDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  name: string;
+
+  @IsArray()
+  @ArrayNotEmpty({ message: 'Debe especificar al menos un scope' })
+  @IsEnum(ApiKeyScope, { each: true, message: 'Scope inválido' })
+  scopes: ApiKeyScope[];
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  description?: string;
+
+  @IsDateString()
+  @IsOptional()
+  expiresAt?: string;
+}
+EOF
+
+cat > src/api-keys/api-keys.service.ts << 'EOF'
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { ApiKeyScope } from '@prisma/client';
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
+
+const BCRYPT_ROUNDS = 10;
+const KEY_PREFIX    = 'sk_live_';
+
+@Injectable()
+export class ApiKeysService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  async create(organizationId: string, actorUserId: string, dto: CreateApiKeyDto) {
+    const rawKey  = `${KEY_PREFIX}${crypto.randomBytes(32).toString('hex')}`;
+    const keyHash = await bcrypt.hash(rawKey, BCRYPT_ROUNDS);
+    const keyPrefix = rawKey.substring(0, 12);
+
+    const apiKey = await this.prisma.apiKey.create({
+      data: {
+        organizationId,
+        name:        dto.name,
+        description: dto.description,
+        keyHash,
+        keyPrefix,
+        scopes:    dto.scopes as unknown as any,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      },
+    });
+
+    this.audit.log({
+      organizationId,
+      userId:     actorUserId,
+      action:     'apikey.create',
+      resource:   'api_key',
+      resourceId: apiKey.id,
+      metadata:   { name: dto.name, scopes: dto.scopes },
+    });
+
+    // Devolver la key en claro UNA sola vez
+    return {
+      id:          apiKey.id,
+      name:        apiKey.name,
+      description: apiKey.description,
+      key:         rawKey,
+      keyPrefix,
+      scopes:      dto.scopes,
+      expiresAt:   apiKey.expiresAt,
+      createdAt:   apiKey.createdAt,
+    };
+  }
+
+  async list(organizationId: string) {
+    const keys = await this.prisma.apiKey.findMany({
+      where:   { organizationId, revokedAt: null },
+      select:  {
+        id: true, name: true, description: true,
+        keyPrefix: true, scopes: true,
+        lastUsedAt: true, expiresAt: true, createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: keys.map((k) => ({
+        ...k,
+        scopes: k.scopes as unknown as ApiKeyScope[],
+        isExpired: k.expiresAt ? new Date() > k.expiresAt : false,
+      })),
+    };
+  }
+
+  async revoke(organizationId: string, actorUserId: string, keyId: string) {
+    const key = await this.prisma.apiKey.findFirst({
+      where: { id: keyId, organizationId },
+    });
+
+    if (!key) throw new NotFoundException('API Key no encontrada');
+    if (key.revokedAt) throw new ForbiddenException('La key ya está revocada');
+
+    await this.prisma.apiKey.update({
+      where: { id: keyId },
+      data:  { revokedAt: new Date() },
+    });
+
+    this.audit.log({
+      organizationId,
+      userId:     actorUserId,
+      action:     'apikey.revoke',
+      resource:   'api_key',
+      resourceId: keyId,
+      metadata:   { name: key.name },
+    });
+
+    return { success: true, message: 'API Key revocada exitosamente' };
+  }
+
+  /**
+   * Valida una raw key recibida en el header x-api-key.
+   * Usada por ApiKeyAuthGuard en todos los sistemas del ecosistema.
+   */
+  async validate(rawKey: string) {
+    if (!rawKey.startsWith(KEY_PREFIX)) {
+      throw new UnauthorizedException('Formato de API Key inválido');
+    }
+
+    const keyPrefix = rawKey.substring(0, 12);
+    const candidates = await this.prisma.apiKey.findMany({
+      where: {
+        keyPrefix,
+        revokedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: { organization: true },
+    });
+
+    for (const candidate of candidates) {
+      const valid = await bcrypt.compare(rawKey, candidate.keyHash);
+      if (valid) {
+        void this.prisma.apiKey
+          .update({ where: { id: candidate.id }, data: { lastUsedAt: new Date() } })
+          .catch(() => null);
+
+        return {
+          ...candidate,
+          scopes: candidate.scopes as unknown as ApiKeyScope[],
+        };
+      }
+    }
+
+    throw new UnauthorizedException('API Key inválida o expirada');
+  }
+}
+EOF
+
+cat > src/api-keys/api-keys.controller.ts << 'EOF'
+import {
+  Controller, Get, Post, Delete,
+  Param, Body, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { ApiKeysService } from './api-keys.service';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { Tenant } from '../common/decorators/tenant.decorator';
+import type { TenantContext } from '../common/types/tenant-context';
+import { Roles } from '../common/decorators/roles.decorator';
+
+@Controller('organizations/me/api-keys')
+export class ApiKeysController {
+  constructor(private readonly svc: ApiKeysService) {}
+
+  /** GET /api/v1/organizations/me/api-keys */
+  @Get()
+  list(@Tenant() tenant: TenantContext) {
+    return this.svc.list(tenant.organizationId);
+  }
+
+  /** POST /api/v1/organizations/me/api-keys */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @Roles('OWNER', 'ADMIN')
+  create(
+    @Tenant() tenant: TenantContext,
+    @Body() dto: CreateApiKeyDto,
+  ) {
+    return this.svc.create(tenant.organizationId, tenant.userId, dto);
+  }
+
+  /** DELETE /api/v1/organizations/me/api-keys/:id */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @Roles('OWNER', 'ADMIN')
+  revoke(
+    @Tenant() tenant: TenantContext,
+    @Param('id') id: string,
+  ) {
+    return this.svc.revoke(tenant.organizationId, tenant.userId, id);
+  }
+}
+EOF
+
+cat > src/api-keys/api-keys.module.ts << 'EOF'
+import { Module } from '@nestjs/common';
+import { ApiKeysController } from './api-keys.controller';
+import { ApiKeysService } from './api-keys.service';
+import { AuditModule } from '../audit/audit.module';
+
+@Module({
+  imports:     [AuditModule],
+  controllers: [ApiKeysController],
+  providers:   [ApiKeysService],
+  exports:     [ApiKeysService],
+})
+export class ApiKeysModule {}
+EOF
+
+ok "ApiKeysModule actualizado"
+
+# ─── 9. Audit Module ──────────────────────────────────────────────────────────
+log "Actualizando AuditModule..."
+
+cat > src/audit/audit.service.ts << 'EOF'
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  log(params: {
+    organizationId?: string;
+    userId?:         string;
+    action:          string;
+    resource?:       string;
+    resourceId?:     string;
+    metadata?:       Prisma.InputJsonValue;
+    ipAddress?:      string;
+    userAgent?:      string;
+  }): void {
+    void this.prisma.auditLog
+      .create({
+        data: {
+          organizationId: params.organizationId,
+          userId:         params.userId,
+          action:         params.action,
+          resource:       params.resource,
+          resourceId:     params.resourceId,
+          metadata:       params.metadata ?? Prisma.JsonNull,
+          ipAddress:      params.ipAddress,
+          userAgent:      params.userAgent,
+        },
+      })
+      .catch((err) => this.logger.error('AuditLog write failed:', err));
+  }
+
+  async getByOrg(organizationId: string, take = 50, skip = 0) {
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where:   { organizationId },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+        include: {
+          user: { select: { email: true, displayName: true, avatarUrl: true } },
+        },
+      }),
+      this.prisma.auditLog.count({ where: { organizationId } }),
+    ]);
+
+    return { success: true, data: { logs, total, take, skip } };
+  }
+}
+EOF
+
+cat > src/audit/audit.controller.ts << 'EOF'
+import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { AuditService } from './audit.service';
+import { Tenant } from '../common/decorators/tenant.decorator';
+import type { TenantContext } from '../common/types/tenant-context';
+import { Roles } from '../common/decorators/roles.decorator';
+
+@Controller('organizations/me/audit')
+export class AuditController {
+  constructor(private readonly svc: AuditService) {}
+
+  /** GET /api/v1/organizations/me/audit?take=50&skip=0 */
+  @Get()
+  @Roles('OWNER', 'ADMIN')
+  getAuditLog(
+    @Tenant() tenant: TenantContext,
+    @Query('take', new DefaultValuePipe(50), ParseIntPipe) take: number,
+    @Query('skip', new DefaultValuePipe(0),  ParseIntPipe) skip: number,
+  ) {
+    return this.svc.getByOrg(tenant.organizationId, take, skip);
+  }
+}
+EOF
+
+cat > src/audit/audit.module.ts << 'EOF'
+import { Module } from '@nestjs/common';
+import { AuditController } from './audit.controller';
+import { AuditService } from './audit.service';
+
+@Module({
+  controllers: [AuditController],
+  providers:   [AuditService],
+  exports:     [AuditService],
+})
+export class AuditModule {}
+EOF
+
+ok "AuditModule actualizado"
+
+# ─── 10. Users Module ─────────────────────────────────────────────────────────
+log "Actualizando UsersModule..."
+
+cat > src/users/users.service.ts << 'EOF'
+import {
+  Injectable, BadRequestException, NotFoundException, Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { SelectRoleDto, UserRole } from './dto/select-role.dto';
+import { v4 as uuidv4 } from 'uuid';
+
+@Injectable()
+export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly orgsService: OrganizationsService,
+  ) {}
+
+  async findByFirebaseUid(firebaseUid: string) {
+    return this.prisma.user.findUnique({
+      where: { firebaseUid },
+      include: {
+        memberships: { include: { organization: true } },
+        affiliateData: true,
+      },
+    });
+  }
+
+  async selectRole(firebaseUid: string, dto: SelectRoleDto) {
+    const user = await this.prisma.user.findUnique({
+      where:   { firebaseUid },
+      include: { memberships: true, affiliateData: true },
+    });
+
+    if (!user) throw new NotFoundException('Usuario no encontrado. Llamá a /auth/sync primero.');
+
+    if (dto.role === UserRole.OWNER) {
+      const alreadyOwner = user.memberships.some((m) => m.role === 'OWNER');
+      if (alreadyOwner) throw new BadRequestException('El usuario ya tiene una organización como Owner');
+
+      await this.prisma.$transaction(async (tx) => {
+        await this.orgsService.createForUser(user.id, undefined, tx);
+      });
+
+      const fresh = await this.findByFirebaseUid(firebaseUid);
+      this.logger.log(`${user.email} activado como Owner`);
+      return { success: true, message: 'Organización creada', data: fresh };
+    }
+
+    if (dto.role === UserRole.AFFILIATE) {
+      if (user.affiliateData) throw new BadRequestException('El usuario ya es Afiliado');
+
+      const code = await this.generateUniqueCode();
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({ where: { id: user.id }, data: { affiliateCode: code } });
+        await tx.affiliateData.create({ data: { userId: user.id } });
+      });
+
+      const fresh = await this.findByFirebaseUid(firebaseUid);
+      this.logger.log(`${user.email} activado como Affiliate: ${code}`);
+      return { success: true, message: 'Código de afiliado generado', data: fresh };
+    }
+  }
+
+  private async generateUniqueCode(): Promise<string> {
+    let code = '';
+    let exists = true;
+    while (exists) {
+      code = `RE-${uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
+      const found = await this.prisma.user.findUnique({ where: { affiliateCode: code } });
+      exists = !!found;
+    }
+    return code;
+  }
+}
+EOF
+
+ok "UsersModule actualizado"
+
+# ─── 11. App Module ───────────────────────────────────────────────────────────
+log "Actualizando AppModule..."
+
+cat > src/app.module.ts << 'EOF'
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+
+import { FirebaseModule } from './firebase/firebase.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { MembershipsModule } from './memberships/memberships.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { AffiliatesModule } from './affiliate/affiliate.module';
+import { FirebaseAuthGuard } from './common/guards/firebase-auth.guard';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([
+      { name: 'short', ttl: 1000,  limit: 15  },
+      { name: 'long',  ttl: 60000, limit: 100 },
+    ]),
+    FirebaseModule,
+    PrismaModule,
+    AuditModule,
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
+    MembershipsModule,
+    ApiKeysModule,
+    AffiliatesModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: FirebaseAuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
+})
+export class AppModule {}
+EOF
+
+ok "AppModule actualizado"
+
+# ─── 12. Main.ts ──────────────────────────────────────────────────────────────
+log "Actualizando main.ts..."
+
+cat > src/main.ts << 'EOF'
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe, Logger } from '@nestjs/common';
+import { AppModule } from './app.module';
+import helmet from 'helmet';
+
+async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  const app    = await NestFactory.create(AppModule);
+
+  app.use(helmet());
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist:              true,
+      forbidNonWhitelisted:   true,
+      transform:              true,
+      disableErrorMessages:   process.env.NODE_ENV === 'production',
+    }),
+  );
+
+  app.setGlobalPrefix('api/v1');
+
+  app.enableCors({
+    origin:      process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:3001'],
+    methods:     ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  });
+
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  logger.log(`Backend corriendo en http://localhost:${port}/api/v1`);
+}
+
+bootstrap();
+EOF
+
+ok "main.ts actualizado"
+
+# ─── 13. .env.example actualizado ────────────────────────────────────────────
+log "Actualizando .env.example..."
+
+cat > .env.example << 'EOF'
+# ════════════════════════════════════════════════════════════════════════════════
+# DATABASE
+# ════════════════════════════════════════════════════════════════════════════════
+DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/owner_saas?schema=public"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# FIREBASE ADMIN SDK (compartido con TODOS los sistemas del ecosistema)
+# Firebase Console → Project Settings → Service Accounts → Generate new private key
+# ════════════════════════════════════════════════════════════════════════════════
+FIREBASE_PROJECT_ID="tu-proyecto-firebase"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk@tu-proyecto.iam.gserviceaccount.com"
+# En .env reemplazar saltos de línea con \n
+FIREBASE_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# APP
+# ════════════════════════════════════════════════════════════════════════════════
+NODE_ENV="development"
+PORT=3000
+ALLOWED_ORIGINS="http://localhost:3001,http://localhost:3002,http://localhost:3003"
+FRONTEND_URL="http://localhost:3001"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# EMAIL TRANSACCIONAL (para invitaciones — Resend recomendado)
+# https://resend.com → API Keys → Create API Key
+# ════════════════════════════════════════════════════════════════════════════════
+RESEND_API_KEY=""
+EMAIL_FROM="noreply@tudominio.com"
+EOF
+
+ok ".env.example actualizado"
+
+# ─── 14. Limpiar módulo collaborators obsoleto ────────────────────────────────
+warn "El módulo 'src/collaborators' quedó reemplazado por 'src/memberships'."
+warn "Podés borrarlo manualmente con: rm -rf src/collaborators"
+warn "Asegurate de que el front use los nuevos endpoints antes de eliminar."
+
+# ─── 15. Compilar para verificar ─────────────────────────────────────────────
+log "Verificando compilación TypeScript..."
+pnpm run build 2>&1 | tail -20
+
+echo ""
+echo -e "${GREEN}════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}  ✓ Refactor multi-tenant completado${NC}"
+echo -e "${GREEN}════════════════════════════════════════════════════════${NC}"
+echo ""
+echo "Endpoints disponibles:"
+echo "  POST  /api/v1/auth/sync                              → sync Firebase user"
+echo "  GET   /api/v1/auth/me                                → perfil + orgs + permisos"
+echo "  GET   /api/v1/organizations                          → todas las orgs del user"
+echo "  GET   /api/v1/organizations/me                       → org principal (OWNER)"
+echo "  GET   /api/v1/organizations/me/stats                 → stats del dashboard"
+echo "  PATCH /api/v1/organizations/me                       → editar org"
+echo "  GET   /api/v1/organizations/me/members               → listar miembros"
+echo "  POST  /api/v1/organizations/me/members/invite        → invitar miembro"
+echo "  PATCH /api/v1/organizations/me/members/:id           → editar rol/permisos"
+echo "  DELETE /api/v1/organizations/me/members/:id          → remover miembro"
+echo "  GET   /api/v1/invitations/:token                     → info invitación (público)"
+echo "  POST  /api/v1/invitations/:token/accept              → aceptar invitación"
+echo "  DELETE /api/v1/organizations/me/invitations/:id      → revocar invitación"
+echo "  GET   /api/v1/organizations/me/api-keys              → listar keys"
+echo "  POST  /api/v1/organizations/me/api-keys              → crear key"
+echo "  DELETE /api/v1/organizations/me/api-keys/:id         → revocar key"
+echo "  GET   /api/v1/organizations/me/audit                 → audit log paginado"
+echo ""
+echo -e "${YELLOW}Header requerido para rutas con TenantGuard:${NC}"
+echo "  x-organization-id: <organizationId>"
+echo ""
+echo -e "${YELLOW}Módulo 'collaborators' obsoleto — eliminarlo cuando el front esté migrado:${NC}"
+echo "  rm -rf src/collaborators"
+</file>
+
+<file path=".gitignore">
+# compiled output
+/dist
+/node_modules
+/build
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+/generated/prisma
+
+/generated/prisma
+</file>
+
+<file path=".prettierrc">
+{
+  "singleQuote": true,
+  "trailingComma": "all"
+}
+</file>
+
+<file path="eslint.config.mjs">
+// @ts-check
+import eslint from '@eslint/js';
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  {
+    ignores: ['eslint.config.mjs'],
+  },
+  eslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
+  eslintPluginPrettierRecommended,
+  {
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+      sourceType: 'commonjs',
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-floating-promises': 'warn',
+      '@typescript-eslint/no-unsafe-argument': 'warn',
+      "prettier/prettier": ["error", { endOfLine: "auto" }],
+    },
+  },
+);
+</file>
+
+<file path="nest-cli.json">
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true
+  }
+}
+</file>
+
+<file path="prisma.config.ts">
+// This file was generated by Prisma, and assumes you have installed the following:
+// npm install --save-dev prisma dotenv
+import "dotenv/config";
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  datasource: {
+    url: process.env["DATABASE_URL"],
+  },
+});
+</file>
+
+<file path="prisma/migrations/migration_lock.toml">
+# Please do not edit this file manually
+# It should be added in your version-control system (e.g., Git)
+provider = "postgresql"
+</file>
+
+<file path="README.md">
+<p align="center">
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
+
+[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+[circleci-url]: https://circleci.com/gh/nestjs/nest
+
+  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
+    <p align="center">
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
+<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
+<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
+<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
+<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
+  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
+    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
+  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+</p>
+  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
+  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+
+## Description
+
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+
+## Project setup
+
+```bash
+$ pnpm install
+```
+
+## Compile and run the project
+
+```bash
+# development
+$ pnpm run start
+
+# watch mode
+$ pnpm run start:dev
+
+# production mode
+$ pnpm run start:prod
+```
+
+## Run tests
+
+```bash
+# unit tests
+$ pnpm run test
+
+# e2e tests
+$ pnpm run test:e2e
+
+# test coverage
+$ pnpm run test:cov
+```
+
+## Deployment
+
+When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+
+If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+
+```bash
+$ pnpm install -g @nestjs/mau
+$ mau deploy
+```
+
+With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+
+## Resources
+
+Check out a few resources that may come in handy when working with NestJS:
+
+- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
+- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
+- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
+- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
+- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
+- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
+- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
+- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+
+## Support
+
+Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+
+## Stay in touch
+
+- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
+- Website - [https://nestjs.com](https://nestjs.com/)
+- Twitter - [@nestframework](https://twitter.com/nestframework)
+
+## License
+
+Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+</file>
+
+<file path="src/affiliate/affiliate.controller.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { AffiliatesController } from './affiliate.controller';
+import { AffiliatesService } from './affiliate.service';
+
+describe('AffiliateController', () => {
+  let controller: AffiliatesController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AffiliatesController],
+      providers: [AffiliatesService],
+    }).compile();
+
+    controller = module.get<AffiliatesController>(AffiliatesController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});
+</file>
+
+<file path="src/affiliate/affiliate.controller.ts">
+import { Controller, Get } from '@nestjs/common';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { AffiliatesService } from './affiliate.service';
+
+@Controller('affiliates')
+export class AffiliatesController {
+  constructor(private readonly affiliatesService: AffiliatesService) {}
+
+  /**
+   * GET /affiliates/me
+   * Retorna el perfil completo del afiliado: código, balance, referidos.
+   */
+  @Get('me')
+  async getMyAffiliateProfile(@CurrentUser() user: CurrentUserPayload) {
+    return this.affiliatesService.getMyProfile(user.uid);
+  }
+
+  /**
+   * GET /affiliates/me/referrals
+   * Retorna el listado de usuarios que se registraron usando el código del afiliado.
+   */
+  @Get('me/referrals')
+  async getMyReferrals(@CurrentUser() user: CurrentUserPayload) {
+    return this.affiliatesService.getMyReferrals(user.uid);
+  }
+}
+</file>
+
+<file path="src/affiliate/affiliate.module.ts">
+import { Module } from '@nestjs/common';
+import { AffiliatesController } from './affiliate.controller';
+import { AffiliatesService } from './affiliate.service';
+
+@Module({
+  controllers: [AffiliatesController],
+  providers: [AffiliatesService],
+  exports: [AffiliatesService],
+})
+export class AffiliatesModule {}
+</file>
+
+<file path="src/affiliate/affiliate.service.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { AffiliatesService } from './affiliate.service';
+
+describe('AffiliateService', () => {
+  let service: AffiliatesService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AffiliateService],
+    }).compile();
+
+    service = module.get<AffiliateService>(AffiliateService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});
+</file>
+
+<file path="src/affiliate/affiliate.service.ts">
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class AffiliatesService {
+  private readonly logger = new Logger(AffiliatesService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getMyProfile(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid },
+      include: { affiliateData: true },
+    });
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    if (!user.affiliateCode || !user.affiliateData) {
+      throw new ForbiddenException(
+        'Este usuario no tiene el rol de Afiliado activo',
+      );
+    }
+
+    return {
+      success: true,
+      data: {
+        affiliateCode: user.affiliateCode,
+        balance: user.affiliateData.balance,
+        referralCount: user.affiliateData.referralCount,
+        createdAt: user.affiliateData.createdAt,
+      },
+    };
+  }
+
+  async getMyReferrals(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid },
+    });
+
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    if (!user.affiliateCode) {
+      throw new ForbiddenException(
+        'Este usuario no tiene el rol de Afiliado activo',
+      );
+    }
+
+    const referrals = await this.prisma.user.findMany({
+      where: { referredByCode: user.affiliateCode },
+      select: {
+        id: true,
+        email: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: {
+        affiliateCode: user.affiliateCode,
+        total: referrals.length,
+        referrals,
+      },
+    };
+  }
+
+  async registerReferral(newUserId: string, affiliateCode: string): Promise<void> {
+    const affiliate = await this.prisma.user.findUnique({
+      where: { affiliateCode },
+      include: { affiliateData: true },
+    });
+
+    if (!affiliate || !affiliate.affiliateData) {
+      this.logger.warn(`Código de afiliado inválido: ${affiliateCode}`);
+      return;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: newUserId },
+        data: { referredByCode: affiliateCode },
+      });
+
+      await tx.affiliateData.update({
+        where: { userId: affiliate.id },
+        data: { referralCount: { increment: 1 } },
+      });
+    });
+
+    this.logger.log(
+      `Referido registrado: usuario ${newUserId} via ${affiliateCode}`,
+    );
+  }
+}
+</file>
+
+<file path="src/affiliate/dto/create-affiliate.dto.ts">
+export class CreateAffiliateDto {}
+</file>
+
+<file path="src/affiliate/dto/update-affiliate.dto.ts">
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateAffiliateDto } from './create-affiliate.dto';
+
+export class UpdateAffiliateDto extends PartialType(CreateAffiliateDto) {}
+</file>
+
+<file path="src/app.controller.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+describe('AppController', () => {
+  let appController: AppController;
+
+  beforeEach(async () => {
+    const app: TestingModule = await Test.createTestingModule({
+      controllers: [AppController],
+      providers: [AppService],
+    }).compile();
+
+    appController = app.get<AppController>(AppController);
+  });
+
+  describe('root', () => {
+    it('should return "Hello World!"', () => {
+      expect(appController.getHello()).toBe('Hello World!');
+    });
+  });
+});
+</file>
+
+<file path="src/app.controller.ts">
+import { Controller, Get } from '@nestjs/common';
+import { AppService } from './app.service';
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @Get()
+  getHello(): string {
+    return this.appService.getHello();
+  }
+}
+</file>
+
+<file path="src/app.service.ts">
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class AppService {
+  getHello(): string {
+    return 'Hello World!';
+  }
+}
+</file>
+
+<file path="src/auth/auth.controller.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+
+describe('AuthController', () => {
+  let controller: AuthController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [AuthService],
+    }).compile();
+
+    controller = module.get<AuthController>(AuthController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});
+</file>
+
+<file path="src/auth/auth.service.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from './auth.service';
+
+describe('AuthService', () => {
+  let service: AuthService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AuthService],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});
+</file>
+
+<file path="src/auth/dto/sync.dto.ts">
+import { IsOptional, IsString, IsUrl } from 'class-validator';
+
+export class SyncUserDto {
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsUrl({}, { message: 'avatarUrl debe ser una URL válida' })
+  avatarUrl?: string;
+}
+</file>
+
+<file path="src/common/decorators/current-user.decorator.ts">
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+
+export interface CurrentUserPayload {
+  uid:           string;
+  email:         string;
+  emailVerified: boolean;
+  displayName?:  string;
+  avatarUrl?:    string;
+}
+
+export const CurrentUser = createParamDecorator(
+  (field: keyof CurrentUserPayload | undefined, ctx: ExecutionContext) => {
+    const user: CurrentUserPayload = ctx.switchToHttp().getRequest().user;
+    return field ? user?.[field] : user;
+  },
+);
+</file>
+
+<file path="src/common/guards/firebase-auth.guard.ts">
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+  SetMetadata,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+import * as admin from 'firebase-admin';
+
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+
+@Injectable()
+export class FirebaseAuthGuard implements CanActivate {
+  private readonly logger = new Logger(FirebaseAuthGuard.name);
+
+  constructor(private readonly reflector: Reflector) {}
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (isPublic) return true;
+
+    const req   = ctx.switchToHttp().getRequest<Request>();
+    const token = this.extractToken(req);
+
+    if (!token) throw new UnauthorizedException('Token de autenticación requerido');
+
+    if (!admin.apps.length) {
+      throw new UnauthorizedException('Firebase no está configurado en este servidor');
+    }
+
+    try {
+      const decoded = await admin.app().auth().verifyIdToken(token);
+      req['user'] = {
+        uid:           decoded.uid,
+        email:         decoded.email ?? '',
+        emailVerified: decoded.email_verified ?? false,
+        displayName:   decoded.name,
+        avatarUrl:     decoded.picture,
+      };
+      return true;
+    } catch (err) {
+      this.logger.warn(`Token inválido: ${(err as Error).message}`);
+      throw new UnauthorizedException('Token de Firebase inválido o expirado');
+    }
+  }
+
+  private extractToken(req: Request): string | undefined {
+    const [type, token] = req.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}
+</file>
+
+<file path="src/organizations/dto/update-organization.dto.ts">
+import {
+  IsString, IsOptional, IsUrl, MaxLength, MinLength,
+  IsObject,
+} from 'class-validator';
+
+export class UpdateOrganizationDto {
+  @IsString()
+  @IsOptional()
+  @MinLength(2)
+  @MaxLength(100)
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  // Solo letras minúsculas, números y guiones
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsUrl()
+  logoUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
+  website?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  address?: string;
+
+  // Qué sistemas tiene habilitados esta org
+  // { "payments": true, "chat": true, "ads": false }
+  @IsObject()
+  @IsOptional()
+  enabledProducts?: Record<string, boolean>;
+
+  // Config por sistema — libre
+  @IsObject()
+  @IsOptional()
+  systemSettings?: Record<string, unknown>;
+}
+</file>
+
+<file path="src/organizations/organizations.controller.ts">
+import { Controller, Get, Patch, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { OrganizationsService } from './organizations.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { Tenant } from '../common/decorators/tenant.decorator';
+import type { TenantContext } from '../common/types/tenant-context';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+
+@Controller('organizations')
+export class OrganizationsController {
+  constructor(private readonly svc: OrganizationsService) {}
+
+  /** GET /api/v1/organizations/me — primera org donde el user es OWNER */
+  @Get('me')
+  getMyOrganization(@CurrentUser() user: CurrentUserPayload) {
+    return this.svc.getMyOrganization(user.uid);
+  }
+
+  /** GET /api/v1/organizations — todas las orgs del usuario */
+  @Get()
+  getAllMyOrganizations(@CurrentUser() user: CurrentUserPayload) {
+    return this.svc.getMyOrganizations(user.uid);
+  }
+
+  /** GET /api/v1/organizations/me/stats */
+  @Get('me/stats')
+  getStats(@Tenant() tenant: TenantContext) {
+    return this.svc.getOrgStats(tenant.organizationId);
+  }
+
+  /** PATCH /api/v1/organizations/me */
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  updateMyOrganization(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateOrganizationDto,
+  ) {
+    return this.svc.updateMyOrganization(user.uid, dto);
+  }
+}
+</file>
+
+<file path="src/prisma/prisma.module.ts">
+import { Global, Module } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+
+@Global() // disponible en toda la app sin reimportar
+@Module({
+  providers: [PrismaService],
+  exports: [PrismaService],
+})
+export class PrismaModule {}
+</file>
+
+<file path="src/prisma/prisma.service.ts">
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+// Importa el adaptador de PostgreSQL
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
+// Importa el driver pg (node-postgres)
+import * as pg from 'pg';
+
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+
+  constructor() {
+    // Asegúrate de que DATABASE_URL esté disponible en tu archivo .env
+    const connectionString = process.env.DATABASE_URL;
+
+    // Crea una instancia del Pool de conexión del driver
+    const pool = new pg.Pool({ connectionString });
+
+    // Crea una instancia del adaptador de Prisma
+    const adapter = new PrismaPg(pool);
+
+    // Pasa el adaptador al constructor de PrismaClient
+    super({
+      adapter: adapter,
+      // Puedes añadir tus logs aquí si es necesario:
+      // log: ['query', 'error', 'warn'],
+    });
+  }
+
+  async onModuleInit() {
+    await this.$connect();
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
+  }
+}
+</file>
+
+<file path="src/users/dto/select-role.dto.ts">
+import { IsEnum, IsNotEmpty } from 'class-validator';
+
+export enum UserRole {
+  OWNER = 'owner',
+  AFFILIATE = 'affiliate',
+}
+
+export class SelectRoleDto {
+  @IsEnum(UserRole, {
+    message: 'El rol debe ser "owner" o "affiliate"',
+  })
+  @IsNotEmpty()
+  role: UserRole;
+}
+</file>
+
+<file path="src/users/users.controller.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+
+describe('UsersController', () => {
+  let controller: UsersController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [UsersService],
+    }).compile();
+
+    controller = module.get<UsersController>(UsersController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});
+</file>
+
+<file path="src/users/users.module.ts">
+import { Module } from '@nestjs/common';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+import { OrganizationsModule } from '../organizations/organizations.module';
+
+@Module({
+  imports: [OrganizationsModule],
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService],
+})
+export class UsersModule {}
+</file>
+
+<file path="src/users/users.service.spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersService } from './users.service';
+
+describe('UsersService', () => {
+  let service: UsersService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [UsersService],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});
+</file>
+
+<file path="src/users/users.service.ts">
+import {
+  Injectable, BadRequestException, NotFoundException, Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { SelectRoleDto, UserRole } from './dto/select-role.dto';
+import { v4 as uuidv4 } from 'uuid';
+
+@Injectable()
+export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly orgsService: OrganizationsService,
+  ) {}
+
+  async findByFirebaseUid(firebaseUid: string) {
+    return this.prisma.user.findUnique({
+      where: { firebaseUid },
+      include: {
+        memberships: { include: { organization: true } },
+        affiliateData: true,
+      },
+    });
+  }
+
+  async selectRole(firebaseUid: string, dto: SelectRoleDto) {
+    const user = await this.prisma.user.findUnique({
+      where:   { firebaseUid },
+      include: { memberships: true, affiliateData: true },
+    });
+
+    if (!user) throw new NotFoundException('Usuario no encontrado. Llamá a /auth/sync primero.');
+
+    if (dto.role === UserRole.OWNER) {
+      const alreadyOwner = user.memberships.some((m) => m.role === 'OWNER');
+      if (alreadyOwner) throw new BadRequestException('El usuario ya tiene una organización como Owner');
+
+      await this.prisma.$transaction(async (tx) => {
+        await this.orgsService.createForUser(user.id, undefined, tx);
+      });
+
+      const fresh = await this.findByFirebaseUid(firebaseUid);
+      this.logger.log(`${user.email} activado como Owner`);
+      return { success: true, message: 'Organización creada', data: fresh };
+    }
+
+    if (dto.role === UserRole.AFFILIATE) {
+      if (user.affiliateData) throw new BadRequestException('El usuario ya es Afiliado');
+
+      const code = await this.generateUniqueCode();
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({ where: { id: user.id }, data: { affiliateCode: code } });
+        await tx.affiliateData.create({ data: { userId: user.id } });
+      });
+
+      const fresh = await this.findByFirebaseUid(firebaseUid);
+      this.logger.log(`${user.email} activado como Affiliate: ${code}`);
+      return { success: true, message: 'Código de afiliado generado', data: fresh };
+    }
+  }
+
+  private async generateUniqueCode(): Promise<string> {
+    let code = '';
+    let exists = true;
+    while (exists) {
+      code = `RE-${uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
+      const found = await this.prisma.user.findUnique({ where: { affiliateCode: code } });
+      exists = !!found;
+    }
+    return code;
+  }
+}
+</file>
+
+<file path="test/app.e2e-spec.ts">
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { App } from 'supertest/types';
+import { AppModule } from './../src/app.module';
+
+describe('AppController (e2e)', () => {
+  let app: INestApplication<App>;
+
+  beforeEach(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+  });
+
+  it('/ (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/')
+      .expect(200)
+      .expect('Hello World!');
+  });
+});
+</file>
+
+<file path="test/jest-e2e.json">
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  }
+}
+</file>
+
+<file path="tsconfig.build.json">
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+}
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "noFallthroughCasesInSwitch": false
+  }
+}
+</file>
+
+<file path=".env.example">
+# ════════════════════════════════════════════════════════════════════════════════
+# DATABASE
+# ════════════════════════════════════════════════════════════════════════════════
+DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/owner_saas?schema=public"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# FIREBASE ADMIN SDK (compartido con TODOS los sistemas del ecosistema)
+# Firebase Console → Project Settings → Service Accounts → Generate new private key
+# ════════════════════════════════════════════════════════════════════════════════
+FIREBASE_PROJECT_ID="tu-proyecto-firebase"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk@tu-proyecto.iam.gserviceaccount.com"
+# En .env reemplazar saltos de línea con \n
+FIREBASE_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# APP
+# ════════════════════════════════════════════════════════════════════════════════
+NODE_ENV="development"
+PORT=3000
+ALLOWED_ORIGINS="http://localhost:3001,http://localhost:3002,http://localhost:3003"
+FRONTEND_URL="http://localhost:3001"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# EMAIL TRANSACCIONAL (para invitaciones — Resend recomendado)
+# https://resend.com → API Keys → Create API Key
+# ════════════════════════════════════════════════════════════════════════════════
+RESEND_API_KEY=""
+EMAIL_FROM="noreply@tudominio.com"
+</file>
+
+<file path="package.json">
+{
+  "name": "realstate-landing-back",
+  "version": "0.0.1",
+  "description": "",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.3",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/event-emitter": "^3.1.0",
+    "@nestjs/mapped-types": "*",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/throttler": "^6.5.0",
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^17.3.1",
+    "firebase-admin": "^13.7.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.19.0",
+    "reflect-metadata": "^0.2.2",
+    "resend": "^6.12.2",
+    "rxjs": "^7.8.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.18.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.7",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^11.0.0",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^16.0.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.4.2",
+    "prisma": "^7.4.2",
+    "source-map-support": "^0.5.21",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
+  }
+}
+</file>
+
+<file path="prisma/schema.prisma">
+// ─────────────────────────────────────────────────────────────────────────────
+// schema.prisma — Multi-tenant SaaS Owner Dashboard
+// Aplicar manualmente: copiar este archivo a prisma/schema.prisma
+// Luego: pnpm prisma migrate dev --name <nombre_descriptivo>
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+// Rol jerárquico dentro de una organización.
+// OWNER   → creador, control total, no puede ser removido
+// ADMIN   → gestiona miembros y configuración, no puede tocar billing
+// MEMBER  → acceso operativo según productPermissions
+// VIEWER  → solo lectura en los módulos habilitados
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// Estado de una invitación a la organización.
+enum InvitationStatus {
+  PENDING   // enviada, esperando que el invitado acepte
+  ACCEPTED  // aceptada, membership creada
+  EXPIRED   // pasaron 7 días sin aceptar
+  REVOKED   // el owner la canceló manualmente
+}
+
+// Scopes disponibles para API Keys.
+// Al agregar un nuevo sistema, agregar su scope aquí y hacer migrate.
+enum ApiKeyScope {
+  // Owner dashboard
+  READ_ORG
+  WRITE_ORG
+  MANAGE_MEMBERS
+  // Sistema de pagos
+  READ_PAYMENTS
+  WRITE_PAYMENTS
+  // Chat IA
+  READ_CHAT
+  WRITE_CHAT
+  // Ad Optimizer
+  READ_ADS
+  WRITE_ADS
+  // Acceso completo (super-scope, para integraciones internas)
+  FULL_ACCESS
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String  @id @default(uuid())
+  firebaseUid   String  @unique
+  email         String  @unique
+  displayName   String?                       // nombre del usuario (sync desde Firebase)
+  avatarUrl     String?                       // foto de perfil (sync desde Firebase)
+  affiliateCode  String? @unique              // código único si es afiliado
+  referredByCode String?                      // código del afiliado que lo refirió
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   Membership[]
+  invitations   Invitation[]  @relation("InvitedUser")
+  affiliateData AffiliateData?
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// ─── Organization ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id          String  @id @default(uuid())
+  name        String?
+  slug        String  @unique              // identificador URL-friendly, editable por el owner
+  description String?
+  logoUrl     String?
+  website     String?
+  phone       String?
+  address     String?
+
+  // Qué sistemas tiene habilitados esta org.
+  // Cada sistema externo consulta estos flags antes de mostrar su módulo.
+  // Estructura esperada del JSON:
+  // {
+  //   "payments": true,
+  //   "chat": true,
+  //   "ads": false
+  // }
+  enabledProducts Json @default("{}")
+
+  // Metadata libre para que los sistemas externos guarden config propia.
+  // Ej: { "payments": { "defaultCurrency": "ARS" }, "chat": { "defaultModel": "llama3-70b" } }
+  systemSettings Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  invitations Invitation[]
+  apiKeys     ApiKey[]
+  auditLogs   AuditLog[]
+
+  @@map("organizations")
+}
+
+// ─── Membership ───────────────────────────────────────────────────────────────
+// Único modelo que une User + Organization. Reemplaza a la tabla collaborators.
+
+model Membership {
+  id             String         @id @default(uuid())
+  userId         String
+  organizationId String
+  role           MembershipRole @default(MEMBER)
+
+  // Permisos granulares por producto en JSONB.
+  // Al agregar un nuevo sistema, solo se agrega una clave aquí — sin migrate.
+  // Estructura esperada:
+  // {
+  //   "payments": { "canRead": true,  "canWrite": false },
+  //   "chat":     { "canRead": true,  "canWrite": true  },
+  //   "ads":      { "canRead": false, "canWrite": false }
+  // }
+  // Para OWNER y ADMIN, estos permisos se ignoran (tienen acceso total).
+  productPermissions Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+// ─── Invitation ───────────────────────────────────────────────────────────────
+// Reemplaza las tablas collaborators + invitations.
+// Un registro por invitación; cuando se acepta se crea la Membership correspondiente.
+
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String                             // destinatario
+  role           MembershipRole   @default(MEMBER)
+  token          String           @unique @default(uuid())
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+
+  // Permisos que tendrá el miembro al aceptar (copiados a Membership.productPermissions)
+  productPermissions Json @default("{}")
+
+  // Se completa cuando el invitado acepta
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+
+  // Quién invitó (para audit)
+  invitedByUserId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  acceptedBy   User?        @relation("InvitedUser", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])          // evitar invitaciones duplicadas activas
+  @@index([organizationId])
+  @@index([token])
+  @@map("invitations")
+}
+
+// ─── ApiKey ───────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id             String      @id @default(uuid())
+  organizationId String
+  name           String
+  keyHash        String      @unique   // bcrypt hash de la key real (nunca se guarda en claro)
+  keyPrefix      String                // primeros 12 chars para búsqueda rápida
+  scopes         Json        @default("[]")   // ApiKeyScope[]
+  description    String?               // para que el owner recuerde para qué es
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([keyPrefix])
+  @@map("api_keys")
+}
+
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+// Append-only. Nunca se borra. Registra toda acción administrativa.
+
+model AuditLog {
+  id             String  @id @default(uuid())
+  organizationId String?
+  userId         String?
+  action         String                   // ej: "member.invite", "apikey.create", "org.update"
+  resource       String?                  // ej: "membership", "api_key", "organization"
+  resourceId     String?
+  metadata       Json?                    // datos extra (ej: rol asignado, scopes de la key)
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ─── AffiliateData ────────────────────────────────────────────────────────────
+
+model AffiliateData {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  balance       Float    @default(0)
+  referralCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("affiliate_data")
+}
+</file>
+
+<file path="src/app.module.ts">
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+
+import { FirebaseModule } from './firebase/firebase.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { MembershipsModule } from './memberships/memberships.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { AffiliatesModule } from './affiliate/affiliate.module';
+import { FirebaseAuthGuard } from './common/guards/firebase-auth.guard';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([
+      { name: 'short', ttl: 1000,  limit: 15  },
+      { name: 'long',  ttl: 60000, limit: 100 },
+    ]),
+    FirebaseModule,
+    PrismaModule,
+    AuditModule,
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
+    MembershipsModule,
+    ApiKeysModule,
+    AffiliatesModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: FirebaseAuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
+})
+export class AppModule {}
+</file>
+
+<file path="src/auth/auth.controller.ts">
+import {
+  Controller,
+  Post,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Query,
+  Body,
+  NotFoundException,
+} from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import { SyncUserDto } from './dto/sync.dto';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  /**
+   * POST /api/v1/auth/sync?ref=RE-XXXXXXXX
+   * Primer llamado tras login en Firebase.
+   * Todos los sistemas del ecosistema llaman a este endpoint con el mismo token.
+   */
+  @Post('sync')
+  @HttpCode(HttpStatus.OK)
+  async syncUser(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() _dto: SyncUserDto,       // body opcional, los datos vienen del token
+    @Query('ref') affiliateCode?: string,
+  ) {
+    const firebaseUser = {
+      ...user,
+      displayName: user.displayName,
+      avatarUrl:   user.avatarUrl,
+    };
+
+    const result = await this.authService.syncUser(firebaseUser, affiliateCode);
+
+    return {
+      success: true,
+      isNew:   result.isNew,
+      message: result.isNew ? 'Usuario creado' : 'Usuario sincronizado',
+      data:    result.user,
+    };
+  }
+
+  /**
+   * GET /api/v1/auth/me
+   * Perfil completo: datos personales + todas las orgs + permisos por producto.
+   * Todos los frontends usan este endpoint para hidratar su contexto inicial.
+   */
+  @Get('me')
+  async getMe(@CurrentUser() user: CurrentUserPayload) {
+    const profile = await this.authService.getMe(user.uid);
+    if (!profile) throw new NotFoundException('Usuario no encontrado. Llamá a /auth/sync primero.');
+    return { success: true, data: profile };
+  }
+}
+</file>
+
+<file path="src/auth/auth.module.ts">
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { AffiliatesModule } from '../affiliate/affiliate.module';
+
+@Module({
+  imports:     [AffiliatesModule],
+  controllers: [AuthController],
+  providers:   [AuthService],
+  exports:     [AuthService],
+})
+export class AuthModule {}
+</file>
+
+<file path="src/auth/auth.service.ts">
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Sincroniza el usuario de Firebase con la DB.
+   * Si es nuevo lo crea; si existe, actualiza displayName/avatarUrl.
+   * Registra el código de afiliado si se pasa en el primer sync.
+   */
+  async syncUser(
+    firebaseUser: CurrentUserPayload,
+    affiliateCode?: string,
+  ) {
+    const { user, isNew } = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { firebaseUid: firebaseUser.uid },
+        include: {
+          memberships: {
+            include: { organization: true },
+          },
+          affiliateData: true,
+        },
+      });
+
+      if (existing) {
+        // Actualizar nombre/avatar si cambiaron en Firebase
+        const needsUpdate =
+          (firebaseUser.displayName && existing.displayName !== firebaseUser.displayName) ||
+          (firebaseUser.avatarUrl   && existing.avatarUrl   !== firebaseUser.avatarUrl);
+
+        const updated = needsUpdate
+          ? await tx.user.update({
+              where: { id: existing.id },
+              data: {
+                displayName: firebaseUser.displayName ?? existing.displayName,
+                avatarUrl:   firebaseUser.avatarUrl   ?? existing.avatarUrl,
+              },
+              include: {
+                memberships: { include: { organization: true } },
+                affiliateData: true,
+              },
+            })
+          : existing;
+
+        return { user: updated, isNew: false };
+      }
+
+      const created = await tx.user.create({
+        data: {
+          firebaseUid: firebaseUser.uid,
+          email:       firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          avatarUrl:   firebaseUser.avatarUrl,
+        },
+        include: {
+          memberships: { include: { organization: true } },
+          affiliateData: true,
+        },
+      });
+
+      return { user: created, isNew: true };
+    });
+
+    // Registrar referido en background (no bloquea la respuesta)
+    if (isNew && affiliateCode) {
+      this.registerReferral(user.id, affiliateCode).catch((err) =>
+        this.logger.warn(`Error registrando referido ${affiliateCode}: ${(err as Error).message}`),
+      );
+    }
+
+    if (isNew) {
+      this.logger.log(`Nuevo usuario: ${user.email}`);
+    }
+
+    return { user, isNew };
+  }
+
+  /**
+   * Devuelve el perfil completo del usuario autenticado + sus orgs + permisos.
+   * Los frontends de todos los sistemas llaman a este endpoint al iniciar.
+   */
+  async getMe(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid },
+      include: {
+        memberships: {
+          include: {
+            organization: {
+              select: {
+                id:              true,
+                name:            true,
+                slug:            true,
+                logoUrl:         true,
+                enabledProducts: true,
+              },
+            },
+          },
+        },
+        affiliateData: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id:          user.id,
+      firebaseUid: user.firebaseUid,
+      email:       user.email,
+      displayName: user.displayName,
+      avatarUrl:   user.avatarUrl,
+      organizations: user.memberships.map((m) => ({
+        id:                 m.organization.id,
+        name:               m.organization.name,
+        slug:               m.organization.slug,
+        logoUrl:            m.organization.logoUrl,
+        enabledProducts:    m.organization.enabledProducts,
+        role:               m.role,
+        productPermissions: m.productPermissions,
+        membershipId:       m.id,
+      })),
+      affiliateData: user.affiliateData,
+      isAffiliate:   !!user.affiliateData,
+    };
+  }
+
+  private async registerReferral(newUserId: string, affiliateCode: string): Promise<void> {
+    const affiliate = await this.prisma.user.findUnique({
+      where: { affiliateCode },
+      include: { affiliateData: true },
+    });
+
+    if (!affiliate?.affiliateData) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: newUserId },
+        data: { referredByCode: affiliateCode },
+      });
+      await tx.affiliateData.update({
+        where: { userId: affiliate.id },
+        data: { referralCount: { increment: 1 } },
+      });
+    });
+  }
+}
+</file>
+
+<file path="src/main.ts">
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe, Logger } from '@nestjs/common';
+import { AppModule } from './app.module';
+import helmet from 'helmet';
+
+async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  const app    = await NestFactory.create(AppModule);
+
+  app.use(helmet());
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist:              true,
+      forbidNonWhitelisted:   true,
+      transform:              true,
+      disableErrorMessages:   process.env.NODE_ENV === 'production',
+    }),
+  );
+
+  app.setGlobalPrefix('api/v1');
+
+  app.enableCors({
+    origin:      process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:3001'],
+    methods:     ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  });
+
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  logger.log(`Backend corriendo en http://localhost:${port}/api/v1`);
+}
+
+bootstrap();
+</file>
+
+<file path="src/organizations/organizations.module.ts">
+import { Module } from '@nestjs/common';
+import { OrganizationsController } from './organizations.controller';
+import { OrganizationsService } from './organizations.service';
+
+@Module({
+  controllers: [OrganizationsController],
+  providers:   [OrganizationsService],
+  exports:     [OrganizationsService],
+})
+export class OrganizationsModule {}
+</file>
+
+<file path="src/organizations/organizations.service.ts">
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { MembershipRole, Prisma } from '@prisma/client';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+
+@Injectable()
+export class OrganizationsService {
+  private readonly logger = new Logger(OrganizationsService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 60);
+  }
+
+  private async ensureSlugUnique(slug: string, excludeId?: string): Promise<string> {
+    const base    = this.slugify(slug);
+    let candidate = base;
+    let i         = 1;
+
+    while (true) {
+      const existing = await this.prisma.organization.findUnique({
+        where: { slug: candidate },
+      });
+      if (!existing || existing.id === excludeId) return candidate;
+      candidate = `${base}-${i++}`;
+    }
+  }
+
+  // ─── Crear org para un usuario (llamado desde UsersService) ───────────────
+
+  async createForUser(userId: string, orgName?: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+
+    const baseSlug = orgName ? this.slugify(orgName) : `org-${userId.substring(0, 8)}`;
+    const slug     = await this.ensureSlugUnique(baseSlug);
+
+    return client.organization.create({
+      data: {
+        name: orgName ?? null,
+        slug,
+        enabledProducts: {},
+        systemSettings:  {},
+        memberships: {
+          create: {
+            userId,
+            role:               MembershipRole.OWNER,
+            productPermissions: {},
+          },
+        },
+      },
+      include: { memberships: true },
+    });
+  }
+
+  // ─── Leer ──────────────────────────────────────────────────────────────────
+
+  async getMyOrganizations(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const memberships = await this.prisma.membership.findMany({
+      where:   { userId: user.id },
+      include: { organization: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      success: true,
+      data: memberships.map((m) => ({
+        ...m.organization,
+        role:               m.role,
+        productPermissions: m.productPermissions,
+        membershipId:       m.id,
+      })),
+    };
+  }
+
+  async getMyOrganization(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where:   { userId: user.id, role: MembershipRole.OWNER },
+      include: { organization: true },
+    });
+
+    if (!membership) throw new NotFoundException('No tenés una organización como Owner');
+
+    return { success: true, data: { ...membership.organization, role: membership.role } };
+  }
+
+  /**
+   * Estadísticas básicas de la org para el Overview del dashboard.
+   */
+  async getOrgStats(organizationId: string) {
+    const [membersCount, keysCount, recentAudit] = await Promise.all([
+      this.prisma.membership.count({ where: { organizationId } }),
+      this.prisma.apiKey.count({ where: { organizationId, revokedAt: null } }),
+      this.prisma.auditLog.findMany({
+        where:   { organizationId },
+        orderBy: { createdAt: 'desc' },
+        take:    10,
+        select:  { id: true, action: true, resource: true, createdAt: true, userId: true },
+      }),
+    ]);
+
+    return { success: true, data: { membersCount, activeApiKeys: keysCount, recentActivity: recentAudit } };
+  }
+
+  // ─── Actualizar ────────────────────────────────────────────────────────────
+
+  async updateMyOrganization(firebaseUid: string, dto: UpdateOrganizationDto) {
+    const user = await this.prisma.user.findUnique({ where: { firebaseUid } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const membership = await this.prisma.membership.findFirst({
+      where: {
+        userId: user.id,
+        role:   { in: [MembershipRole.OWNER, MembershipRole.ADMIN] },
+      },
+      include: { organization: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Solo Owner o Admin pueden editar la organización');
+    }
+
+    const org = membership.organization;
+
+    // Validar slug único si cambió
+    if (dto.slug && dto.slug !== org.slug) {
+      const normalized = this.slugify(dto.slug);
+      const conflict   = await this.prisma.organization.findUnique({ where: { slug: normalized } });
+      if (conflict && conflict.id !== org.id) {
+        throw new BadRequestException(`El slug "${normalized}" ya está en uso`);
+      }
+      dto.slug = normalized;
+    }
+
+    const data: Prisma.OrganizationUpdateInput = {};
+    if (dto.name            !== undefined) data.name            = dto.name;
+    if (dto.slug            !== undefined) data.slug            = dto.slug;
+    if (dto.description     !== undefined) data.description     = dto.description;
+    if (dto.logoUrl         !== undefined) data.logoUrl         = dto.logoUrl;
+    if (dto.website         !== undefined) data.website         = dto.website;
+    if (dto.phone           !== undefined) data.phone           = dto.phone;
+    if (dto.address         !== undefined) data.address         = dto.address;
+    if (dto.enabledProducts !== undefined) data.enabledProducts = dto.enabledProducts as Prisma.InputJsonValue;
+    if (dto.systemSettings  !== undefined) data.systemSettings  = dto.systemSettings  as Prisma.InputJsonValue;
+
+    const updated = await this.prisma.organization.update({
+      where: { id: org.id },
+      data,
+    });
+
+    this.logger.log(`Org ${org.id} actualizada por ${user.email}`);
+    return { success: true, message: 'Organización actualizada', data: updated };
+  }
+}
+</file>
+
+<file path="src/users/users.controller.ts">
+import {
+  Controller,
+  Patch,
+  Body,
+  Get,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { UsersService } from './users.service';
+import { SelectRoleDto } from './dto/select-role.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../common/decorators/current-user.decorator';
+
+
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  /**
+   * GET /users/me
+   * Retorna el perfil completo del usuario autenticado
+   */
+  @Get('me')
+  async getProfile(@CurrentUser() user: CurrentUserPayload) {
+    const profile = await this.usersService.findByFirebaseUid(user.uid);
+    return {
+      success: true,
+      data: profile,
+    };
+  }
+
+  /**
+   * PATCH /users/select-role
+   * Permite al usuario activar su rol: owner | affiliate
+   *
+   * Body: { "role": "owner" } o { "role": "affiliate" }
+   * Headers: Authorization: Bearer <firebase_id_token>
+   */
+  @Patch('select-role')
+  @HttpCode(HttpStatus.OK)
+  async selectRole(
+    @CurrentUser('uid') uid: string,
+    @Body() selectRoleDto: SelectRoleDto,
+  ) {
+    return this.usersService.selectRole(uid, selectRoleDto);
+  }
+}
+</file>
+
+</files>
