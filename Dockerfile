@@ -3,7 +3,7 @@
 # Stack: Node 22 · pnpm · NestJS 11 · Prisma 7
 # =============================================================================
 
-ARG CACHE_BUST=3
+ARG CACHE_BUST=4
 
 # ── Stage 1: dependencias ─────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
@@ -15,6 +15,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
+COPY prisma.config.ts ./
 
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
@@ -35,6 +36,7 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma/
+COPY --from=deps /app/prisma.config.ts ./prisma.config.ts
 COPY . .
 
 RUN rm -f pnpm-workspace.yaml
@@ -56,6 +58,7 @@ ENV NODE_ENV=production
 
 COPY package.json ./
 COPY prisma ./prisma/
+COPY prisma.config.ts ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
@@ -71,5 +74,4 @@ EXPOSE 3000
 
 ENTRYPOINT ["dumb-init", "--"]
 
-# migrate deploy aplica migraciones pendientes antes de arrancar
-CMD ["sh", "-c", "echo '>>> DATABASE_URL=' $DATABASE_URL && npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
