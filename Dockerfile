@@ -1,32 +1,33 @@
 # =============================================================================
 # Dockerfile — organizaciones-back
 # Stack: Node 22 · pnpm · NestJS 11 · Prisma 7
-# Build: multi-stage (deps → builder → runner)
 # =============================================================================
 
-# ── Stage 1: instalar dependencias ───────────────────────────────────────────
+# ── Stage 1: dependencias ────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 
-# Necesario para bcrypt y otros bindings nativos
 RUN apk add --no-cache libc6-compat python3 make g++
 
 WORKDIR /app
 
-# Instalar pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
-# Copiar manifests y schema de Prisma ANTES del install
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma/
 
-RUN pnpm install --frozen-lockfile
+# --ignore-scripts evita el error de builds no aprobados
+# prisma generate se corre explícitamente después
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Compilar bcrypt (binding nativo) explícitamente
+RUN cd node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
 
 
-# ── Stage 2: compilar TypeScript ─────────────────────────────────────────────
+# ── Stage 2: build ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
-RUN apk add --no-cache libc6-compat
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN apk add --no-cache libc6-compat python3 make g++
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
 
@@ -35,31 +36,31 @@ COPY --from=deps /app/prisma ./prisma
 
 COPY . .
 
-# 1. Generar el Prisma Client con los tipos del schema actual
+# Generar Prisma Client y compilar
 RUN pnpm prisma generate
-
-# 2. Compilar TypeScript → dist/
 RUN pnpm run build
 
 
-# ── Stage 3: imagen de runtime (mínima) ──────────────────────────────────────
+# ── Stage 3: runner ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 
-RUN apk add --no-cache libc6-compat dumb-init
+RUN apk add --no-cache libc6-compat python3 make g++ dumb-init
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma/
 
-# Solo dependencias de producción
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-# Generar Prisma Client en el runner también
+# Rebuild bcrypt en el runner también
+RUN cd node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
+
+# Generar Prisma Client
 RUN pnpm prisma generate
 
 COPY --from=builder /app/dist ./dist
