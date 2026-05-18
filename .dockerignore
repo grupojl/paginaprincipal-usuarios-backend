@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+build
+coverage
+.nyc_output
+
+# Environment — CRÍTICO: nunca copiar .env a la imagen
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Logs
+logs
+*.log
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+.temp
+.tmp
+
+# Prisma generated
+/generated/prisma
