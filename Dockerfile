@@ -72,4 +72,4 @@ EXPOSE 3000
 ENTRYPOINT ["dumb-init", "--"]
 
 # migrate deploy aplica migraciones pendientes antes de arrancar
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "echo '>>> DATABASE_URL=' $DATABASE_URL && npx prisma migrate deploy && node dist/main"]
