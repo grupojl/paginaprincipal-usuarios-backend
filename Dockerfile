@@ -3,7 +3,9 @@
 # Stack: Node 22 · pnpm · NestJS 11 · Prisma 7
 # =============================================================================
 
-# ── Stage 1: dependencias completas ──────────────────────────────────────────
+ARG CACHE_BUST=3
+
+# ── Stage 1: dependencias ─────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 
 RUN apk add --no-cache libc6-compat python3 make g++
@@ -16,34 +18,34 @@ COPY prisma ./prisma/
 
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Compilar bcrypt (binding nativo)
+# Rebuild bcrypt nativo para alpine
 RUN cd node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
 
-# Generar Prisma Client
+# Generar cliente Prisma tipado
 RUN npx prisma generate
 
 
-# ── Stage 2: compilar TypeScript ─────────────────────────────────────────────
+# ── Stage 2: build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/prisma ./prisma
-
+COPY --from=deps /app/prisma ./prisma/
 COPY . .
 
-# Excluir pnpm-workspace.yaml si existe (evita modo monorepo)
 RUN rm -f pnpm-workspace.yaml
 
-# Compilar usando nest directamente, sin pasar por pnpm workspace
-RUN npx nest build
+RUN node_modules/.bin/nest build
+
+# Verificar output
+RUN ls -la dist/ && echo "✓ dist generado"
 
 
-# ── Stage 3: runtime ─────────────────────────────────────────────────────────
+# ── Stage 3: runner ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 
 RUN apk add --no-cache libc6-compat dumb-init
@@ -54,12 +56,10 @@ ENV NODE_ENV=production
 
 COPY package.json ./
 COPY prisma ./prisma/
-
-# node_modules con prisma client ya generado
 COPY --from=deps /app/node_modules ./node_modules
-
-# build compilado
 COPY --from=builder /app/dist ./dist
+
+RUN ls -la dist/ && echo "✓ dist en runner"
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 nestjs \
@@ -70,4 +70,6 @@ USER nestjs
 EXPOSE 3000
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main"]
+
+# migrate deploy aplica migraciones pendientes antes de arrancar
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
