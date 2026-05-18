@@ -1,9 +1,10 @@
 # =============================================================================
 # Dockerfile — organizaciones-back
 # Stack: Node 22 · pnpm · NestJS 11 · Prisma 7
+# Fix: duplicate COPY dist, nodenext module output, build verification
 # =============================================================================
 
-ARG CACHE_BUST=4
+ARG CACHE_BUST=5
 
 # ── Stage 1: dependencias ─────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
@@ -43,8 +44,8 @@ RUN rm -f pnpm-workspace.yaml
 
 RUN node_modules/.bin/nest build
 
-# Verificar output
-RUN ls -la dist/ && echo "✓ dist generado"
+# Verificar que dist/main.js existe — falla el build si no está
+RUN test -f dist/main.js && echo "✓ dist/main.js generado" || (echo "✗ dist/main.js NO encontrado" && ls -la dist/ && exit 1)
 
 
 # ── Stage 3: runner ───────────────────────────────────────────────────────────
@@ -56,13 +57,15 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Copiar solo lo necesario para runtime
 COPY package.json ./
 COPY prisma ./prisma/
 COPY prisma.config.ts ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
-RUN ls -la dist/ && echo "✓ dist en runner"
+# Verificar antes de cambiar usuario
+RUN test -f dist/main.js && echo "✓ dist/main.js en runner" || (echo "✗ FALTA dist/main.js" && exit 1)
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 nestjs \
@@ -73,6 +76,5 @@ USER nestjs
 EXPOSE 3000
 
 ENTRYPOINT ["dumb-init", "--"]
-COPY --from=builder /app/dist ./dist
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
