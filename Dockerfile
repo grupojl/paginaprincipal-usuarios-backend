@@ -73,5 +73,6 @@ USER nestjs
 EXPOSE 3000
 
 ENTRYPOINT ["dumb-init", "--"]
+COPY --from=builder /app/dist ./dist
 
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
