@@ -19,7 +19,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # Compilar bcrypt (binding nativo)
 RUN cd node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
 
-# Generar Prisma Client aquí, con todas las deps disponibles
+# Generar Prisma Client
 RUN npx prisma generate
 
 
@@ -31,13 +31,16 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
 
-# Traer node_modules completos (con prisma client ya generado)
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 
 COPY . .
 
-RUN pnpm run build
+# Excluir pnpm-workspace.yaml si existe (evita modo monorepo)
+RUN rm -f pnpm-workspace.yaml
+
+# Compilar usando nest directamente, sin pasar por pnpm workspace
+RUN npx nest build
 
 
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
@@ -49,14 +52,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copiar solo lo necesario
 COPY package.json ./
 COPY prisma ./prisma/
 
-# Copiar node_modules completos desde deps (ya tiene el prisma client generado)
+# node_modules con prisma client ya generado
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copiar el build compilado
+# build compilado
 COPY --from=builder /app/dist ./dist
 
 RUN addgroup --system --gid 1001 nodejs \
