@@ -3,66 +3,60 @@
 # Stack: Node 22 · pnpm · NestJS 11 · Prisma 7
 # =============================================================================
 
-# ── Stage 1: dependencias ────────────────────────────────────────────────────
+# ── Stage 1: dependencias completas ──────────────────────────────────────────
 FROM node:22-alpine AS deps
 
 RUN apk add --no-cache libc6-compat python3 make g++
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
-
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# --ignore-scripts evita el error de builds no aprobados
-# prisma generate se corre explícitamente después
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Compilar bcrypt (binding nativo) explícitamente
+# Compilar bcrypt (binding nativo)
 RUN cd node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
 
+# Generar Prisma Client aquí, con todas las deps disponibles
+RUN npx prisma generate
 
-# ── Stage 2: build ───────────────────────────────────────────────────────────
+
+# ── Stage 2: compilar TypeScript ─────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
 
+# Traer node_modules completos (con prisma client ya generado)
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 
 COPY . .
 
-# Generar Prisma Client y compilar
-RUN pnpm prisma generate
 RUN pnpm run build
 
 
-# ── Stage 3: runner ──────────────────────────────────────────────────────────
+# ── Stage 3: runtime ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 
-RUN apk add --no-cache libc6-compat python3 make g++ dumb-init
+RUN apk add --no-cache libc6-compat dumb-init
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
-
-COPY package.json pnpm-lock.yaml .npmrc ./
+# Copiar solo lo necesario
+COPY package.json ./
 COPY prisma ./prisma/
 
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+# Copiar node_modules completos desde deps (ya tiene el prisma client generado)
+COPY --from=deps /app/node_modules ./node_modules
 
-# Rebuild bcrypt en el runner también
-RUN cd node_modules/bcrypt && npm rebuild bcrypt --build-from-source || true
-
-# Generar Prisma Client
-RUN pnpm prisma generate
-
+# Copiar el build compilado
 COPY --from=builder /app/dist ./dist
 
 RUN addgroup --system --gid 1001 nodejs \
